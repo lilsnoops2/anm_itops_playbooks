@@ -1,0 +1,38 @@
+---
+- name: Show group names (keys) from inventory
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ./images.yml
+
+  vars:
+    required_suffixes:
+      - "_target_image"
+      - "_md5_hash"
+      - "_image_size_bytes"
+      - "_image_code"
+    skip_groups:
+      - all
+      - ungrouped
+      - switch
+      - router
+      - firewall
+
+  tasks:
+    - name: Download correct images and fill in values within images.yml for these platforms
+      debug:
+        msg: "{{ groups.keys() | difference(skip_groups) | list }}"
+
+    - name: Check that all of these platform series have correct values, if you see MISSING, verify images.yml
+      vars:
+        all_groups: "{{ groups.keys() | difference(skip_groups) | list }}"
+      debug:
+        msg: |
+          Group: {{ item }}
+          {% set expected_vars = required_suffixes | map('regex_replace', '^(.*)$', item ~ '\\1') | list %}
+          {% for key in expected_vars %}
+          - {{ key }}: {{ vars.get(key, 'MISSING') }}
+          {% endfor %}
+      loop: "{{ all_groups }}"
+      loop_control:
+        label: "{{ item }}"

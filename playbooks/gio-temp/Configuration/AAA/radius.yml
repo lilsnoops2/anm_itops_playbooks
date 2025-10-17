@@ -1,0 +1,158 @@
+---
+- name: Manage RADIUS servers and groups (idempotent)
+  hosts: all
+  gather_facts: no
+  connection: network_cli
+  vars_files:
+    - ../group_vars/all/radius-servers.yml
+  vars:
+    radius_timeout: 5
+    dead_criteria: 3
+    retry_count: 3
+    hold_down: 15
+
+  tasks:
+
+    ##########################################################
+    # 1. Gather existing RADIUS configuration
+    ##########################################################
+
+    - name: Get RADIUS configuration (IOS / IOS-XE)
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_command:
+        commands:
+          - "show running-config | section radius"
+      register: ios_radius
+
+    - name: Get RADIUS configuration (IOS-XR)
+      when: ansible_network_os == 'iosxr'
+      iosxr_command:
+        commands:
+          - "show running-config | include radius-server"
+      register: iosxr_radius
+
+    - name: Get RADIUS configuration (ASA)
+      when: ansible_network_os == 'asa'
+      asa_command:
+        commands:
+          - "show running-config aaa-server | include radius"
+      register: asa_radius
+
+    ##########################################################
+    # 2. Show proposed configuration and confirm
+    ##########################################################
+
+    - name: Display proposed RADIUS changes
+      run_once: true
+      delegate_to: localhost
+      vars:
+        summary: |
+          Proposed RADIUS configuration changes:
+
+          Servers:
+          {{ radius_servers | to_nice_yaml }}
+
+          Groups:
+          {{ groups.radius | to_nice_yaml }}
+
+          AAA Method Lists (RADIUS-related):
+          authentication.dot1x: {{ aaa_method_lists.authentication.dot1x }}
+          authorization.network_default: {{ aaa_method_lists.authorization.network_default }}
+          accounting.dot1x_default: {{ aaa_method_lists.accounting.dot1x_default }}
+      block:
+        - name: Show summary
+          debug:
+            msg: "{{ summary.split('\n') }}"
+        - name: Confirm before applying
+          pause:
+            prompt: "Type 'yes' to proceed with RADIUS configuration: "
+          register: radius_confirm
+        - name: Abort if not confirmed
+          fail:
+            msg: "User cancelled RADIUS configuration."
+          when: radius_confirm.user_input | lower != 'yes'
+
+    ##########################################################
+    # 3. Apply RADIUS server, group, and AAA configuration
+    ##########################################################
+
+    - name: Configure RADIUS servers (IOS / IOS-XE)
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines: |
+          {% for srv in radius_servers %}
+          radius server {{ srv.name }}
+            address ipv4 {{ srv.address }} auth-port {{ srv.auth_port | default(1812) }} acct-port {{ srv.acct_port | default(1813) }}
+            key {{ srv.key }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure RADIUS groups (IOS / IOS-XE)
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines: |
+          {% for group, members in groups.radius.items() %}
+          aaa group server radius {{ group }}
+          {% for m in members %}
+            server name {{ m }}
+          {% endfor %}
+          timeout {{ radius_timeout }}
+          dead-criteria {{ dead_criteria }}
+          retry {{ retry_count }}
+          hold-down {{ hold_down }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure RADIUS servers (IOS-XR)
+      when: ansible_network_os == 'iosxr'
+      iosxr_config:
+        lines: |
+          {% for srv in radius_servers %}
+          radius-server host {{ srv.address }} auth-port {{ srv.auth_port | default(1812) }} acct-port {{ srv.acct_port | default(1813) }} key {{ srv.key }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure RADIUS groups (IOS-XR)
+      when: ansible_network_os == 'iosxr'
+      iosxr_config:
+        lines: |
+          {% for group, members in groups.radius.items() %}
+          radius-server group {{ group }}
+          {% for m in members %}
+            server {{ radius_servers | selectattr('name', 'equalto', m) | map(attribute='address') | first }}
+          {% endfor %}
+          timeout {{ radius_timeout }}
+          dead-criteria {{ dead_criteria }}
+          retry {{ retry_count }}
+          hold-down {{ hold_down }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure RADIUS on ASA
+      when: ansible_network_os == 'asa'
+      asa_config:
+        lines: |
+          {% for srv in radius_servers %}
+          aaa-server {{ srv.name }} protocol radius
+            host {{ srv.address }}
+            key {{ srv.key }}
+          {% endfor %}
+        match: exact
+
+    ##########################################################
+    # 4. Apply AAA method lists related to RADIUS
+    ##########################################################
+
+    - name: Configure RADIUS-related AAA method lists
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines: |
+          aaa authentication dot1x default {{ aaa_method_lists.authentication.dot1x }}
+          aaa authorization network default {{ aaa_method_lists.authorization.network_default }}
+          aaa accounting dot1x default {{ aaa_method_lists.accounting.dot1x_default }}
+        match: exact
+
+    - name: Completion message
+      run_once: true
+      debug:
+        msg: "RADIUS configuration successfully applied."

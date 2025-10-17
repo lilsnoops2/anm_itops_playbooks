@@ -1,0 +1,163 @@
+---
+
+- name: Clean up Cisco device disk
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: target_hosts
+      prompt: |
+        Available groups:
+        {% for g in groups.keys() | sort %}
+        - {{ g }}
+        {% endfor %}
+        
+        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+      private: no
+    
+  tasks:
+    - name: Store answers as facts for next play
+      set_fact:
+        target_hosts: "{{ target_hosts }}"
+      run_once: true
+      no_log: true
+
+- name: Clean up Cisco device disk
+  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  gather_facts: false
+
+  vars_prompt:
+    - name: ansible_user
+      prompt: "Enter username"
+      private: no
+    - name: ansible_password
+      prompt: "Enter password" 
+      private: yes 
+
+  roles:
+    - ansible-pyats
+
+  tasks:
+    - name: Gather facts for Devices
+      ios_facts:
+
+    - name: Detect install or bundle mode
+      set_fact:
+        device_mode: "{{ 'install' if ansible_net_image is search('packages.conf') else 'bundle' }}"
+
+    - name: Show device mode
+      debug:
+        msg: "Device is running in {{ device_mode }} mode"
+
+    - name: Initialize base delete patterns bundle mode
+      when: device_mode == 'bundle'
+      set_fact:
+        delete_patterns:
+          - '^crashinfo'
+          - '\.log$'
+          - '\.old$'
+          - '\.prv$'
+          - '\.xml$'
+          - '\.bin$'
+          - '\.tar$'
+
+    - name: Initialize base delete patterns install mode
+      when: device_mode == 'install'
+      set_fact:
+        delete_patterns:
+          - '^crashinfo'
+          - '\.log$'
+          - '\.old$'
+          - '\.prv$'
+          - '\.xml$'
+
+    - name: Set Flash Directory Fact
+      set_fact:
+        disk_name: "{{ ansible_net_image | split(':') | first | lower }}:"
+
+    - name: List files on device
+      ios_command:
+        commands:
+          - "dir {{ disk_name }}"
+      register: dir_output
+    
+    - name: Parse Dir with pyats
+      set_fact:
+        parsed_dir: "{{ dir_output['stdout'][0] | pyats_parser('dir', parser_type) }}"
+      vars:
+        parser_type: "{{ 'iosxe' if ansible_net_iostype == 'IOS-XE' else 'ios' }}"
+
+    - name: Get disk files
+      vars: 
+        files: "parsed_dir['dir']['{{ disk_name }}/']['files']"
+      set_fact:
+        disk_files: "{{ parsed_dir['dir'][disk_name + '/']['files'] }}"
+
+    - name: Extract only filenames from parsed disk dictionary
+      set_fact:
+        disk_file_names: "{{ disk_files.keys() | list }}"
+
+    - name: Initialize cleanup files list
+      set_fact:
+        cleanup_files_list: []
+
+    - name: Match files per pattern safely
+      set_fact:
+        cleanup_files_list: "{{ cleanup_files_list + (disk_file_names | select('search', item) | list) }}"
+      loop: "{{ delete_patterns }}"
+
+    # - name:  Finalize cleanup files
+    #   set_fact:
+    #     cleanup_files: "{{ cleanup_files_list | unique }}"
+
+    - name: Finalize cleanup files (exclude running image)
+      set_fact:
+        cleanup_files: "{{ cleanup_files_list 
+                          | unique 
+                          | reject('search', ansible_net_image | basename)
+                          | list }}"
+                        
+    - name: Show matched files
+      debug:
+        msg: |
+          Found {{ cleanup_files | length }} matching files:
+          {% for f in cleanup_files %}
+          - {{ f }}
+          {% endfor %}
+
+    - name: Confirmation
+      run_once: true
+      delegate_to: localhost
+      vars:
+        summary: "CAUTION: review the above files carefully before proceeding, proceeding will also run install remove inactive for Install mode devices"
+      block:
+        - name: Show summary
+          debug:
+            msg: "{{ summary }}"
+        - name: Confirm before deletion
+          pause:
+            prompt: "Type 'yes' to proceed with cleanup: "
+          register: confirm
+        - name: Abort if not confirmed
+          fail:
+            msg: "User cancelled configuration."
+          when: confirm.user_input | lower != 'yes'
+
+
+    - name: Cleaning up unnecessary package files
+      when: device_mode == 'install'
+      ios_command:
+        commands:
+          - command: install remove inactive
+            prompt: Do you want to remove the above files?
+            answer: 'y'
+        wait_for:
+          - result[0] contains SUCCESS
+      register: cleanup_output
+      vars:
+        ansible_command_timeout: 300
+
+    - name: Delete matching files
+      ios_command:
+        commands: "{{ cleanup_files | map('regex_replace', '^', 'delete /force ' ~ disk_name) | list }}"
+      when: cleanup_files | length > 0

@@ -1,0 +1,164 @@
+---
+- name: Manage TACACS+ servers and groups (idempotent)
+  hosts: all
+  gather_facts: no
+  connection: network_cli
+  vars_files:
+    - ../group_vars/all/radius-servers.yml
+  vars:
+    tacacs_timeout: 5
+    dead_criteria: 3
+    retry_count: 3
+    hold_down: 15
+
+  tasks:
+
+    ##########################################################
+    # 1. Gather existing TACACS configuration
+    ##########################################################
+
+    - name: Get TACACS configuration (IOS / IOS-XE)
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_command:
+        commands:
+          - "show running-config | section tacacs"
+      register: ios_tacacs
+
+    - name: Get TACACS configuration (IOS-XR)
+      when: ansible_network_os == 'iosxr'
+      iosxr_command:
+        commands:
+          - "show running-config | include tacacs-server"
+      register: iosxr_tacacs
+
+    - name: Get TACACS configuration (ASA)
+      when: ansible_network_os == 'asa'
+      asa_command:
+        commands:
+          - "show running-config aaa-server | include tacacs"
+      register: asa_tacacs
+
+    ##########################################################
+    # 2. Show proposed configuration and confirm
+    ##########################################################
+
+    - name: Display proposed TACACS+ changes
+      run_once: true
+      delegate_to: localhost
+      vars:
+        summary: |
+          Proposed TACACS+ configuration changes:
+
+          Servers:
+          {{ tacacs_servers | to_nice_yaml }}
+
+          Groups:
+          {{ groups.tacacs | to_nice_yaml }}
+
+          AAA Method Lists (TACACS-related):
+          authentication.default: {{ aaa_method_lists.authentication.default }}
+          authentication.VTY: {{ aaa_method_lists.authentication.VTY }}
+          authentication.enable: {{ aaa_method_lists.authentication.enable }}
+          authorization.exec_default: {{ aaa_method_lists.authorization.exec_default }}
+          authorization.exec_VTY: {{ aaa_method_lists.authorization.exec_VTY }}
+          accounting.exec_default: {{ aaa_method_lists.accounting.exec_default }}
+      block:
+        - name: Show summary
+          debug:
+            msg: "{{ summary.split('\n') }}"
+        - name: Confirm before applying
+          pause:
+            prompt: "Type 'yes' to proceed with TACACS+ configuration: "
+          register: tacacs_confirm
+        - name: Abort if not confirmed
+          fail:
+            msg: "User cancelled TACACS+ configuration."
+          when: tacacs_confirm.user_input | lower != 'yes'
+
+    ##########################################################
+    # 3. Apply TACACS+ server, group, and AAA configuration
+    ##########################################################
+
+    - name: Configure TACACS+ servers (IOS / IOS-XE)
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines: |
+          {% for srv in tacacs_servers %}
+          tacacs server {{ srv.name }}
+            address ipv4 {{ srv.address }} port {{ srv.port | default(49) }}
+            key {{ srv.key }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure TACACS+ groups (IOS / IOS-XE)
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines: |
+          {% for group, members in groups.tacacs.items() %}
+          aaa group server tacacs+ {{ group }}
+          {% for m in members %}
+            server name {{ m }}
+          {% endfor %}
+          timeout {{ tacacs_timeout }}
+          dead-criteria {{ dead_criteria }}
+          retry {{ retry_count }}
+          hold-down {{ hold_down }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure TACACS+ servers (IOS-XR)
+      when: ansible_network_os == 'iosxr'
+      iosxr_config:
+        lines: |
+          {% for srv in tacacs_servers %}
+          tacacs-server host {{ srv.address }} port {{ srv.port | default(49) }} key {{ srv.key }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure TACACS+ groups (IOS-XR)
+      when: ansible_network_os == 'iosxr'
+      iosxr_config:
+        lines: |
+          {% for group, members in groups.tacacs.items() %}
+          tacacs-server group {{ group }}
+          {% for m in members %}
+            server {{ tacacs_servers | selectattr('name', 'equalto', m) | map(attribute='address') | first }}
+          {% endfor %}
+          timeout {{ tacacs_timeout }}
+          dead-criteria {{ dead_criteria }}
+          retry {{ retry_count }}
+          hold-down {{ hold_down }}
+          {% endfor %}
+        match: exact
+
+    - name: Configure TACACS+ on ASA
+      when: ansible_network_os == 'asa'
+      asa_config:
+        lines: |
+          {% for srv in tacacs_servers %}
+          aaa-server {{ srv.name }} protocol tacacs+
+            host {{ srv.address }}
+            key {{ srv.key }}
+          {% endfor %}
+        match: exact
+
+    ##########################################################
+    # 4. Apply AAA method lists related to TACACS+
+    ##########################################################
+
+    - name: Configure TACACS+-related AAA method lists
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines: |
+          aaa authentication login default {{ aaa_method_lists.authentication.default }}
+          aaa authentication login VTY {{ aaa_method_lists.authentication.VTY }}
+          aaa authentication enable default {{ aaa_method_lists.authentication.enable }}
+          aaa authorization exec default {{ aaa_method_lists.authorization.exec_default }}
+          aaa authorization exec VTY {{ aaa_method_lists.authorization.exec_VTY }}
+          aaa accounting exec default {{ aaa_method_lists.accounting.exec_default }}
+        match: exact
+
+    - name: Completion message
+      run_once: true
+      debug:
+        msg: "TACACS+ configuration successfully applied."

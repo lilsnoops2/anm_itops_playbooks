@@ -1,0 +1,128 @@
+---
+- name: Group Display and selection
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: target_hosts
+      prompt: |
+        Available groups:
+        {% for g in groups.keys() | sort %}
+        - {{ g }}
+        {% endfor %}
+        
+        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+      private: no
+    
+  tasks:
+    - name: Store answers as facts for next play
+      set_fact:
+        target_hosts: "{{ target_hosts }}"
+      run_once: true
+      no_log: true
+
+      
+- name: Ensure all required RADIUS servers are configured by IP (reuse or create with defined name)
+  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  gather_facts: no
+  connection: network_cli
+
+  vars_files:
+    - aaaservers.yml
+
+  vars_prompt:
+    - name: ansible_user
+      prompt: "Enter username"
+      private: no
+    - name: ansible_password
+      prompt: "Enter password"
+      private: yes
+    - name: "radius_key"
+      prompt: "Enter RADIUS shared secret key (used only for servers missing one)"
+      private: yes
+
+  tasks:
+    - name: Gather current RADIUS configuration
+      ios_command:
+        commands:
+          - "show running-config | section ^radius server"
+      register: radius_config
+
+    - name: Gather AAA groups
+      ios_command:
+        commands:
+          - "show running-config | include ^aaa group server radius"
+      register: aaa_group_output
+
+    - name: Parse AAA RADIUS group names
+      set_fact:
+        aaa_radius_groups: >-
+          {{
+            aaa_group_output.stdout[0].splitlines()
+            | map('regex_replace','^aaa group server radius (\\S+)','\\1')
+            | list
+          }}
+
+    - name: Initialize RADIUS server facts
+      set_fact:
+        existing_radius_map: {}
+        existing_radius_keys: {}
+
+    - name: Parse RADIUS servers line-by-line
+      vars:
+        config_lines: "{{ radius_config.stdout[0].splitlines() }}"
+      block:
+        - name: Loop through config lines
+          set_fact:
+            existing_radius_map: >-
+              {{
+                (line.startswith('radius server') and
+                 existing_radius_map.update({line.split()[2]: (config_lines[config_lines.index(line)+1].split()[2] if 'address ipv4' in config_lines[config_lines.index(line)+1] else None)}) or existing_radius_map)
+              }}
+            existing_radius_keys: >-
+              {{
+                (line.startswith('radius server') and
+                 (config_lines[config_lines.index(line)+2].split(None,1)[1] if 'key ' in config_lines[config_lines.index(line)+2] else None)
+                 is not none and
+                 existing_radius_keys.update({line.split()[2]: config_lines[config_lines.index(line)+2].split(None,1)[1]}) or existing_radius_keys)
+              }}
+          loop: "{{ config_lines }}"
+          loop_control:
+            loop_var: line
+
+    - name: Build list of currently configured RADIUS IPs
+      set_fact:
+        existing_radius_ips: "{{ existing_radius_map.values() | list }}"
+
+    - name: Build servers_with_names (loop-based)
+      set_fact:
+        servers_with_names: []
+
+    - name: Append server_name to each required server
+      set_fact:
+        servers_with_names: >-
+          {{
+            servers_with_names + [server | combine({'server_name': (existing_radius_map | dict2items | selectattr('value','equalto', server.ip) | map(attribute='key') | list | first) | default(server.name) })]
+          }}
+      loop: "{{ required_radius_servers }}"
+      loop_control:
+        loop_var: server
+
+    - name: Add or update RADIUS servers (reuse existing key if present)
+      ios_config:
+        parents: "radius server {{ server.server_name }}"
+        lines:
+          - "address ipv4 {{ server.ip }} auth-port {{ server.auth_port }} acct-port {{ server.acct_port }}"
+          - "{{ 'key ' ~ existing_radius_keys[server.server_name] if server.server_name in existing_radius_keys else 'key ' ~ (server.key | default(radius_key)) }}"
+          - "automate-tester username radius-test idle-time 10"
+      loop: "{{ servers_with_names }}"
+      loop_control:
+        loop_var: server
+
+      ios_config:
+        parents: "{{ group }}"
+        lines: "{{ servers_with_names | map(attribute='server_name') | map('regex_replace', '^(.*)$', 'server name \\1') | list }}"
+      loop: "{{ aaa_radius_groups }}"
+      loop_control:
+        loop_var: group
+      when: aaa_radius_groups | length > 0

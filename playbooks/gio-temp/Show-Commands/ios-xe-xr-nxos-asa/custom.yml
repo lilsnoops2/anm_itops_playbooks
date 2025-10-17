@@ -1,0 +1,85 @@
+---
+
+- name: Group Display and selection
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: target_hosts
+      prompt: |
+        Available groups:
+        {% for g in groups.keys() | sort %}
+        - {{ g }}
+        {% endfor %}
+        
+        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+      private: no
+    
+  tasks:
+    - name: Store answers as facts for next play
+      set_fact:
+        target_hosts: "{{ target_hosts }}"
+      run_once: true
+      no_log: true
+
+- name: Custom command
+  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  gather_facts: false
+
+  vars_prompt:
+    - name: ansible_user
+      prompt: "Enter username"
+      private: no
+    - name: ansible_password
+      prompt: "Enter password"
+      private: yes
+    - name: usercommand
+      prompt: "Enter Command to run"
+      private: no
+      
+
+  tasks:
+    - name: Run Command
+      tags: pre-check, check-version, post-check, install
+      ios_command:
+        commands: 
+          - "{{ usercommand }}"
+      register: command
+
+    - name: Store output in a variable
+      set_fact:
+        saved_output: |
+          Device: {{ inventory_hostname }}
+          {% if command.stdout[0] is defined %}
+          {{ command.stdout[0] }}
+          {% else %}
+          No output received or command failed.
+          {% endif %}
+
+    - name: Ensure output directory exists
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.file:
+        path: "outputs"
+        state: directory
+        mode: '0755'
+
+    - name: Save all outputs to a single file named after target_hosts
+      delegate_to: localhost
+      run_once: false
+      ansible.builtin.lineinfile:
+        path: "outputs/{{ usercommand | replace('|','-') | replace(' ','-') }}_{{ now().strftime('%Y-%m-%d_%H') }}.txt"
+        create: yes
+        line: |
+          {{ saved_output }}
+
+    - name: Display command output
+      ansible.builtin.debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          {% if command.stdout[0] is defined %}
+          {{ command.stdout[0] }}
+          {% else %}
+          No output received or command failed.
+          {% endif %}
+

@@ -1,3 +1,12 @@
+.venv/
+backup/
+outputs/
+inventory.yml
+images.yml
+jumpboxes.yml
+dnsservers.yml
+aaaservers.yml
+*.xlsx
 *vault*
 *.pem
 *.key

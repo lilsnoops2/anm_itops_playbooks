@@ -1,0 +1,99 @@
+---
+- name: Group Display and selection
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: target_hosts
+      prompt: |
+        Available groups:
+        {% for g in groups.keys() | sort %}
+        - {{ g }}
+        {% endfor %}
+        
+        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+      private: no
+    
+  tasks:
+    - name: Store answers as facts for next play
+      set_fact:
+        target_hosts: "{{ target_hosts }}"
+      run_once: true
+      no_log: true
+
+      
+- name: Ensure all required RADIUS servers are configured by IP (reuse or create with defined name)
+  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  gather_facts: no
+  connection: network_cli
+
+  vars_files:
+    - aaaservers.yml
+
+  vars_prompt:
+    - name: ansible_user
+      prompt: "Enter username"
+      private: no
+    - name: ansible_password
+      prompt: "Enter password"
+      private: yes
+    - name: "radius_key"
+      prompt: "Enter RADIUS shared secret key (used only for servers missing one)"
+      private: yes
+
+  tasks:
+
+    - name: Gather dynamic-author section from running-config
+      ios_command:
+        commands:
+          - "show running-config | section ^aaa server radius dynamic-author"
+      register: dynamic_author_config
+
+    - name: DEBUG - raw dynamic-author section
+      debug:
+        var: dynamic_author_config.stdout
+
+    - name: Parse existing dynamic-author client IPs
+      set_fact:
+        existing_dynamic_author_ips: >-
+          {{
+            dynamic_author_config.stdout[0].splitlines()
+            | map('regex_search', 'client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)\\s+server-key', '\\1')
+            | select('string')
+            | list
+          }}
+
+    - name: DEBUG - Existing dynamic-author IPs
+      debug:
+        var: existing_dynamic_author_ips
+
+    - name: Build servers_with_names for dynamic-author
+      set_fact:
+        servers_with_names: >-
+          {{
+            required_radius_servers
+            | map('combine', {'key': radius_key})
+            | list
+          }}
+
+    - name: Determine missing servers for dynamic-author
+      set_fact:
+        servers_missing_dynamic_author: >-
+          {{
+            servers_with_names
+            | selectattr('ip','not in', existing_dynamic_author_ips)
+            | list
+          }}
+
+    - name: DEBUG - Servers missing from dynamic-author
+      debug:
+        var: servers_missing_dynamic_author
+
+    - name: Add missing servers to dynamic-author
+      ios_config:
+        parents: "aaa server radius dynamic-author"
+        lines:
+          - "client {{ server.ip }} server-key {{ server.key }}"
+      loop: "{{ servers_missing_dynamic_author }}"
+      loop_control:
+        loop_var: server

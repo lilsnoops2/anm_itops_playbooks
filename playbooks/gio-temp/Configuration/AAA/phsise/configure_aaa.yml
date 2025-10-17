@@ -1,0 +1,76 @@
+---
+- name: Group Display and selection
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: target_hosts
+      prompt: |
+        Available groups:
+        {% for g in groups.keys() | sort %}
+        - {{ g }}
+        {% endfor %}
+        
+        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+      private: no
+    
+  tasks:
+    - name: Store answers as facts for next play
+      set_fact:
+        target_hosts: "{{ target_hosts }}"
+      run_once: true
+      no_log: true
+
+
+- name: Configure global RADIUS server settings
+  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  gather_facts: no
+  connection: network_cli
+
+  vars_prompt:
+    - name: ansible_user
+      prompt: "Enter username"
+      private: no
+    - name: ansible_password
+      prompt: "Enter password"
+      private: yes
+
+
+  tasks:
+    - name: Set RADIUS server global parameters
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines:
+          - "radius-server dead-criteria time 3 tries 3"
+          - "radius-server retransmit 2"
+          - "radius-server timeout 3"
+          - "radius-server deadtime 10"
+          - "no radius-server load-balance"
+        match: exact
+        save_when: always
+
+    - name: Get current RADIUS server names
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_command:
+        commands:
+          - "show running-config | include ^radius server"
+      register: radius_output
+
+    - name: Extract RADIUS server names
+      when: ansible_network_os in ['ios', 'iosxe']
+      set_fact:
+        radius_servers: "{{ radius_output.stdout[0].splitlines() | map('regex_search', '^radius server (\\S+)', '\\1') | list }}"
+
+    - name: Flatten radius_servers list
+      set_fact:
+        radius_servers: "{{ radius_servers | flatten }}"
+
+    - name: Add automate-tester line under each RADIUS server
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines:
+          - "automate-tester username radius-test idle-time 10"
+        parents: "radius server {{ item }}"
+        match: exact
+        replace: line
+      loop: "{{ radius_servers }}"

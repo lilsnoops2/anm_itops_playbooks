@@ -1,0 +1,50 @@
+---q 
+
+- name: Gather FMC DNS servers using token-based API
+  hosts: fmc
+  gather_facts: no
+  vars:
+    fmc_auth_token: ""
+    fmc_domain_uuid: ""
+  tasks:
+
+    - name: Obtain FMC token (v2-style, bearer auth)
+      uri:
+        url: "https://{{ inventory_hostname }}/api/fmc_platform/v1/auth/generatetoken"
+        method: POST
+        user: "{{ fmc_username }}"
+        password: "{{ fmc_password }}"
+        force_basic_auth: yes
+        validate_certs: no
+      register: fmc_auth
+      no_log: true
+
+    - name: Set FMC token fact
+      set_fact:
+        fmc_auth_token: "{{ fmc_auth.headers['X-auth-access-token'] }}"
+
+    - name: Get FMC Domain UUID dynamically
+      uri:
+        url: "https://{{ inventory_hostname }}/api/fmc_config/v1/domain/default"
+        method: GET
+        headers:
+          X-auth-access-token: "{{ fmc_auth_token }}"
+        validate_certs: no
+      register: fmc_domain_info
+
+    - name: Set FMC domain UUID fact
+      set_fact:
+        fmc_domain_uuid: "{{ fmc_domain_info.json.id }}"
+
+    - name: Get DNS servers from FMC (v2-style, token-based)
+      uri:
+        url: "https://{{ inventory_hostname }}/api/fmc_config/v1/domain/{{ fmc_domain_uuid }}/devicehapolicies/defaultdnsserver"
+        method: GET
+        headers:
+          X-auth-access-token: "{{ fmc_auth_token }}"
+        validate_certs: no
+      register: fmc_dns
+
+    - name: Show DNS servers from FMC
+      debug:
+        msg: "{{ inventory_hostname }} DNS Servers: {{ fmc_dns.json }}" 

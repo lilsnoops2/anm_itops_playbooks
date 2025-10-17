@@ -1,0 +1,212 @@
+---
+- name: IOSXE Upgrade Playbook
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: target_hosts
+      prompt: |
+        Available groups:
+        {% for g in groups.keys() | sort %}
+        - {{ g }}
+        {% endfor %}
+        
+        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+      private: no
+    
+  tasks:
+    - name: Store answers as facts for next play
+      set_fact:
+        target_hosts: "{{ target_hosts }}"
+      run_once: true
+      no_log: true
+- name: IOSXE Upgrade Playbook
+  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  vars_files: 
+    - ./images.yml
+  gather_facts: false
+  connection: network_cli
+
+  vars_prompt:
+    - name: ansible_user
+      prompt: "Enter username"
+      private: no
+    - name: ansible_password
+      prompt: "Enter password" 
+      private: yes
+
+  roles:
+    - ansible-pyats
+
+  tasks:
+    - name: Gather facts for Devices
+      ios_facts:
+    
+     ##set target_image
+    - name: Set Fact for target image name using platform
+      tags: pre-check, check-version, post-check, install
+      set_fact:
+        raw_target_image: "{{ platform_series | lower }}_target_image"
+
+    - name: Set Fact for target image using platform
+      tags: pre-check, check-version, post-check, install
+      set_fact:
+        target_image: "{{ lookup('vars', raw_target_image) }}"
+        
+      ##set target_ver
+    - name: Set Fact for target image code
+      tags: pre-check, check-version, post-check, install
+      set_fact:
+        target_image_code_raw: "{{ platform_series | lower }}_image_code"
+
+    - name: Set Fact for target md5
+      tags: pre-check, check-version, post-check, install
+      set_fact:
+        target_ver: "{{ lookup('vars', target_image_code_raw) }}"
+        
+        
+   ##set flash_dir
+    - name: Set Flash Directory Fact
+      tags: pre-check, check-version, post-check, install
+      set_fact:
+        flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
+      
+      ##set install/bundle mode
+    - name: Detect install or bundle mode
+      set_fact:
+        device_mode: "{{ 'install' if ansible_net_image is search('packages.conf') else 'bundle' }}"
+        
+   
+
+   ## IOSXE Upgrade process starting 
+    - name: Install/Upgrade IOSXE Software
+      when: device_mode == 'install'
+      block:
+        - name: Saving configuration before upgrading 
+          tags: install, upgrade
+          ios_command:
+            commands: 
+              - command: 'copy run start'
+                prompt: 'Destination filename'
+                answer: "\r"
+          register: config_save
+
+        - name: Installing Target IOSXE
+          tags: install, upgrade
+          ios_command:
+            commands:
+              - command: 'install add file {{ flash_dir }}{{ target_image }}  activate commit prompt-level none'
+          register: install_output
+          vars:
+            ansible_command_timeout: 1800
+
+        - name: waiting for {{ inventory_hostname }} to come back online
+          tags: install, upgrade
+          wait_for_connection:
+            delay: 60
+            sleep: 30
+            timeout: 900
+
+      rescue:
+        - name: Installation status check 
+          tags: install, upgrade
+          debug: msg='Upgrade process is having some trouble ...'
+
+
+      always:
+        - name: Print Install Results
+          tags: install upgrade
+          debug: var=install_output.stdout_lines
+
+        - name: Gather facts after upgrade
+          tags: post-check, install, upgrade
+          ios_facts:
+
+        - name: Assert that switch is running with the target version after Upgrade
+          tags: post-check, install, upgrade
+          assert:
+            quiet: no
+            success_msg: "{{ inventory_hostname }} has been upgraded to {{ target_ver }}"
+            fail_msg: "Failed to upgrade the {{ inventory_hostname }}, it is still runninng {{ ansible_net_version }}"
+            that:
+              - "'{{ ansible_net_version }}' == '{{ target_ver }}'"
+
+
+        - name: Cleaning up unnecessary package files
+          tags: install, cleanup, upgrade
+          ios_command:
+            commands:
+              - command: install remove inactive
+                prompt: Do you want to remove the above files?
+                answer: 'y'
+            wait_for:
+              - result[0] contains SUCCESS
+          register: cleanup_output
+          vars:
+            ansible_command_timeout: 300
+
+        - name: Print Cleanup Results
+          tags: install, cleanup, upgrade
+          debug: var=cleanup_output.stdout_lines
+
+        ## Display message for Upgrade process completed.
+        - debug: msg="Upgrade completed."
+          tags: pre-check, install, upgrade
+          
+    ## IOSXE Upgrade process starting 
+    - name: Install/Upgrade IOSXE Software
+      when: device_mode == 'bundle'
+      block:
+        - name: Saving configuration before upgrading 
+          tags: install, upgrade
+          ios_command:
+            commands: 
+              - command: 'copy run start'
+                prompt: 'Destination filename'
+                answer: "\r"
+          register: config_save
+
+        - name: Installing Target IOSXE
+          tags: install, upgrade
+          ios_command:
+            commands:
+              - command: 'archive download-sw /reload /leave-old-sw {{ flash_dir }}{{ target_image }}'
+          register: install_output
+          vars:
+            ansible_command_timeout: 1800
+
+        - name: waiting for {{ inventory_hostname }} to come back online
+          tags: install, upgrade
+          wait_for_connection:
+            delay: 60
+            sleep: 30
+            timeout: 900
+
+      rescue:
+        - name: Installation status check 
+          tags: install, upgrade
+          debug: msg='Upgrade process is having some trouble ...'
+
+
+      always:
+        - name: Print Install Results
+          tags: install upgrade
+          debug: var=install_output.stdout_lines
+
+        - name: Gather facts after upgrade
+          tags: post-check, install, upgrade
+          ios_facts:
+
+        - name: Assert that switch is running with the target version after Upgrade
+          tags: post-check, install, upgrade
+          assert:
+            quiet: no
+            success_msg: "{{ inventory_hostname }} has been upgraded to {{ target_ver }}"
+            fail_msg: "Failed to upgrade the {{ inventory_hostname }}, it is still runninng {{ ansible_net_version }}"
+            that:
+              - "'{{ ansible_net_version }}' == '{{ target_ver }}'"
+
+
+        ## Display message for Upgrade process completed.
+        - debug: msg="Upgrade completed."
+          tags: pre-check, install, upgrade
