@@ -13,3 +13,4 @@ aaaservers.yml
 *.crt
 local_*
 exmple_*
+.devcontainer
