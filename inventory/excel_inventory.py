@@ -7,6 +7,8 @@ from openpyxl import load_workbook
 from pathlib import Path
 import sys
 
+def verify_file(path):
+    return path.endswith('inventory')
 
 def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
     # Get absolute path of the Excel file (same directory as script)
