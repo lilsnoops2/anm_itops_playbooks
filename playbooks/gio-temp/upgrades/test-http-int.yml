@@ -89,5 +89,5 @@
     - name: Set HTTP Source 
       ios_config: 
         lines: 
-          - ip http client source-interface {{ ssh_interface }} 
+          - ip http client source-interface {{ ssh_interface | replace('[','') | replace("'",'') | replace(']','') }} 
         save_when: always
