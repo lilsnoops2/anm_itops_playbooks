@@ -41,14 +41,22 @@
       private: yes
 
   vars:
-  ansible_become: true
-  ansible_become_method: enable
-  ansible_become_password: "{{ ansible_password }}"
+
 
   roles:
     - ansible-pyats
 
   tasks:
+
+    - name: Store answers as facts for next play
+      set_fact:
+        ansible_become_password: "{{ ansible_password }}"
+        ansible_become: true
+        ansible_become_method: enable
+      run_once: true
+      no_log: true
+
+
     ##Check http server
     - name: Check http availability
       ansible.builtin.uri:
