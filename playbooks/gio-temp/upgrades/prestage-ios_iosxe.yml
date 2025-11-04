@@ -26,6 +26,8 @@
     - ./images.yml
   gather_facts: false
   connection: network_cli
+  become: true
+
 
   vars_prompt:
     - name: http_server
@@ -37,6 +39,11 @@
     - name: ansible_password
       prompt: "Enter password" 
       private: yes
+
+  vars:
+  ansible_become: yes
+  ansible_become_method: enable
+  ansible_become_password: ansible_password
 
   roles:
     - ansible-pyats
