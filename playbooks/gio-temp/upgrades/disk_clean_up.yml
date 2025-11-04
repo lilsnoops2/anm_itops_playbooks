@@ -131,7 +131,7 @@
 
     - name: Print a specific variable
       debug:
-        var: ansible_net_image
+        var: ansible_net_image | basename
                         
     - name: Show matched files
       debug:
