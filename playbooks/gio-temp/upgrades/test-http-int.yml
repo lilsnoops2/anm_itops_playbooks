@@ -12,7 +12,8 @@
 
     - name: Set target_hosts
       set_fact:
-        target_hosts: "{{ target_hosts_input if target_hosts_input is defined else target_hosts }}"
+        target_hosts: "{{ target_hosts_input.user_input }}"
+      when: target_hosts_input is defined and target_hosts_input.user_input is defined
 
 
 - name: Update HTTP Source Interface on Devices
@@ -39,10 +40,15 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Set credentials
+    - name: Set username from prompt
       set_fact:
-        ansible_user: "{{ user_input if user_input is defined else ansible_user }}"
-        ansible_password: "{{ pass_input if pass_input is defined else ansible_password }}"
+        ansible_user: "{{ user_input.user_input }}"
+      when: user_input is defined and user_input.user_input is defined
+
+    - name: Set password from prompt
+      set_fact:
+        ansible_password: "{{ pass_input.user_input }}"
+      when: pass_input is defined and pass_input.user_input is defined
 
   tasks:
 
