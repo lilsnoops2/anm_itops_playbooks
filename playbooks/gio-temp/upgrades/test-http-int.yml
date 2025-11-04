@@ -13,6 +13,7 @@
         
         Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
       private: no
+      when: target_hosts is not defined
 
   tasks:
     - name: Store target hosts for next play
@@ -31,9 +32,12 @@
     - name: ansible_user
       prompt: "Enter username"
       private: no
+      when: ansible_user is not defined
     - name: ansible_password
       prompt: "Enter password"
       private: yes
+      when: ansible_password is not defined
+
 
   tasks:
 
