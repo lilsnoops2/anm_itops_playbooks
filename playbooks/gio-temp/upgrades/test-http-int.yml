@@ -36,31 +36,29 @@
 
   tasks:
 
-    - name: Determine device OS and run appropriate "show interface brief"
-      block:
-        - name: Run on IOS devices
-          ios_command:
-            commands:
-              - "show ip interface brief | include {{ ansible_host }}"
-          register: ip_brief
-          when: ansible_network_os == "ios"
-          ignore_errors: yes
+    - name: Run on IOS devices
+      ios_command:
+        commands:
+          - "show ip interface brief | include {{ ansible_host }}"
+      register: ip_brief
+      when: ansible_network_os == "ios"
+      ignore_errors: yes
 
-        - name: Run on IOS XR devices
-          iosxr_command:
-            commands:
-              - "show ipv4 interface brief | include {{ ansible_host }}"
-          register: ip_brief
-          when: ansible_network_os == "iosxr"
-          ignore_errors: yes
+    - name: Run on IOS XR devices
+      iosxr_command:
+        commands:
+          - "show ipv4 interface brief | include {{ ansible_host }}"
+      register: ip_brief
+      when: ansible_network_os == "iosxr"
+      ignore_errors: yes
 
-        - name: Run on NX-OS devices
-          nxos_command:
-            commands:
-              - "show ip interface brief | include {{ ansible_host }}"
-          register: ip_brief
-          when: ansible_network_os == "nxos"
-          ignore_errors: yes
+    - name: Run on NX-OS devices
+      nxos_command:
+        commands:
+          - "show ip interface brief | include {{ ansible_host }}"
+      register: ip_brief
+      when: ansible_network_os == "nxos"
+      ignore_errors: yes
 
     - name: Extract interface name from 'show ip interface brief' output
       set_fact:
