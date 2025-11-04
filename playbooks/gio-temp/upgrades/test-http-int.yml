@@ -84,11 +84,6 @@
         msg: "Could not determine SSH interface for {{ ansible_host }}"
       when: ssh_interface is not defined or ssh_interface == ''
 
-    - name: Display SSH Interface for Testing
-      debug:
-        msg: "Found SSH interface: {{ ssh_interface | default('NOT DEFINED') }}"
-      when: ssh_interface is defined
-
     - name: Set HTTP Source
       ios_config:
         lines: "ip http client source-interface {{ ssh_interface }}"
@@ -118,3 +113,29 @@
         - ssh_interface is defined 
         - ssh_interface != ''
         - ansible_network_os == "nxos"
+
+    - name: Verify HTTP source interface configuration (IOS)
+      ios_command:
+        commands:
+          - "show run | include http client source-interface"
+      register: http_config_verify
+      when: 
+        - ansible_network_os == "ios"
+        - ssh_interface is defined and ssh_interface != ''
+
+    - name: Verify HTTP source interface configuration (IOS-XR)
+      iosxr_command:
+        commands:
+          - "show run | include http client source-interface"
+      register: http_config_verify
+      when: 
+        - ansible_network_os == "iosxr"
+        - ssh_interface is defined and ssh_interface != ''
+
+    - name: Display verification results
+      debug:
+        msg: |
+          Configuration Verification for {{ ansible_host }}:
+          - Interface used: {{ ssh_interface }}
+          - Configuration found: {{ http_config_verify.stdout<sup>1</sup> | trim if http_config_verify.stdout<sup>1</sup> else 'Not configured' }}
+          - Status: {{ 'SUCCESS' if (ssh_interface in http_config_verify.stdout<sup>1</sup> | default('')) else 'FAILED' }}
