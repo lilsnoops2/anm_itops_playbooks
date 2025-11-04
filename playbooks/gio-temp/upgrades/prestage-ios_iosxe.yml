@@ -224,9 +224,9 @@
             wait_for:
               - result[0] contains {{ target_image_size }} bytes copied
           vars:
-            ansible_command_timeout: 2400
-            ansible_connect_timeout: 2400
-            ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
+            ansible_command_timeout: 3000
+            ansible_connect_timeout: 3000
+            #ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
           no_log: false
           register: image_copy
 
@@ -243,9 +243,9 @@
         wait_for:
           - result[0] contains Verified
       vars:
-        ansible_command_timeout: 2400
-        ansible_connect_timeout: 2400
-        ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
+        ansible_command_timeout: 3000
+        ansible_connect_timeout: 3000
+        #ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
       register: image_validation_result
 
     - debug:
