@@ -37,11 +37,8 @@
       - "_image_code"
 
   tasks:
-    # - name: Download correct images and fill in values within images.yml for these platforms
-    #   debug:
-    #     msg: "{{ groups.keys() | list }}"
-
-    - name: Debug all variables for each host
+  
+    - name: Show platform for selected hosts/groups
       debug:
         var: hostvars[inventory_hostname]["platform_series"]
 
