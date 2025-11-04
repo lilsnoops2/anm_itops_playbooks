@@ -41,8 +41,8 @@
 
     - name: Set credentials
       set_fact:
-        ansible_user: "{{ user_input.user_input if user_input is defined else ansible_user }}"
-        ansible_password: "{{ pass_input.user_input if pass_input is defined else ansible_password }}"
+        ansible_user: "{{ user_input if user_input is defined else ansible_user }}"
+        ansible_password: "{{ pass_input if pass_input is defined else ansible_password }}"
 
   tasks:
 
