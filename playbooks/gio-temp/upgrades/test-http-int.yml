@@ -49,7 +49,7 @@
       ios_command:
         commands:
           - "show ip interface brief | include {{ ansible_host }}"
-      register: ip_brief
+      register: ip_brief_ios
       when: ansible_network_os == "ios"
       ignore_errors: yes
 
@@ -57,7 +57,7 @@
       iosxr_command:
         commands:
           - "show ipv4 interface brief | include {{ ansible_host }}"
-      register: ip_brief
+      register: ip_brief_iosxr
       when: ansible_network_os == "iosxr"
       ignore_errors: yes
 
@@ -65,9 +65,13 @@
       nxos_command:
         commands:
           - "show ip interface brief | include {{ ansible_host }}"
-      register: ip_brief
+      register: ip_brief_nxos
       when: ansible_network_os == "nxos"
       ignore_errors: yes
+
+    - name: Consolidate ip_brief results
+      set_fact:
+        ip_brief: "{{ ip_brief_ios | default(ip_brief_iosxr) | default(ip_brief_nxos) }}"
 
     - name: Extract interface name
       set_fact:
