@@ -44,7 +44,6 @@
       ios_facts:
 
     - name: Set HTTP Source
-      when: platform_series == 'c9000'
       ios_config:
         lines:
           - ip http client source-interface {{ interface_name }} {{ vlan }}

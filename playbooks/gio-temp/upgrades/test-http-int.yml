@@ -36,12 +36,31 @@
 
   tasks:
 
-    - name: Show 'show ip interface brief' filtered for the target IP
-      ios_command:
-        commands:
-          - "show ip interface brief | include {{ ansible_host }}"
-      register: ip_brief
-      ignore_errors: yes
+    - name: Determine device OS and run appropriate "show interface brief"
+      block:
+        - name: Run on IOS devices
+          ios_command:
+            commands:
+              - "show ip interface brief | include {{ ansible_host }}"
+          register: ip_brief
+          when: ansible_network_os == "ios"
+          ignore_errors: yes
+
+        - name: Run on IOS XR devices
+          iosxr_command:
+            commands:
+              - "show ipv4 interface brief | include {{ ansible_host }}"
+          register: ip_brief
+          when: ansible_network_os == "iosxr"
+          ignore_errors: yes
+
+        - name: Run on NX-OS devices
+          nxos_command:
+            commands:
+              - "show ip interface brief | include {{ ansible_host }}"
+          register: ip_brief
+          when: ansible_network_os == "nxos"
+          ignore_errors: yes
 
     - name: Extract interface name from 'show ip interface brief' output
       set_fact:
@@ -50,14 +69,6 @@
         - ip_brief is defined
         - ip_brief.stdout is defined
         - ip_brief.stdout[0] | trim != ''
-
-    # - name: Fallback: get running-config interface section (only if we didn't find via brief)
-    #   ios_command:
-    #     commands:
-    #       - "show running-config | section ^interface"
-    #   register: run_cfg
-    #   when: ssh_interface is not defined
-    #   ignore_errors: yes
 
     - name: Parse running-config for interface that has 'ip address <ansible_host>'
       set_fact:
@@ -73,14 +84,23 @@
         - run_cfg.stdout is defined
         - run_cfg.stdout[0] | trim != ''
 
-    - name: Report result
-      debug:
-        msg: >-
-          {% if ssh_interface is defined and ssh_interface|length > 0 %}
-            Interface for SSH IP {{ ansible_host }}: {{ ssh_interface }}
-          {% else %}
-            No interface found with IP {{ ansible_host }}.
-            Outputs collected:
-            show ip interface brief: {{ ip_brief.stdout if (ip_brief is defined) else 'n/a' }}
-            running-config section: {{ (run_cfg.stdout[0][:200] + '...') if (run_cfg is defined and run_cfg.stdout and run_cfg.stdout[0]) else 'n/a' }}
-          {% endif %}
+    - name: Set HTTP source interface on IOS
+      ios_config:
+        lines:
+          - ip http client source-interface {{ ssh_interface }}
+        save_when: always
+      when: ansible_network_os == "ios"
+
+    - name: Set HTTP source interface on IOS XR
+      iosxr_config:
+        lines:
+          - http client source-interface {{ ssh_interface }}
+        commit: yes
+      when: ansible_network_os == "iosxr"
+
+    - name: Set HTTP source interface on NX-OS
+      nxos_config:
+        lines:
+          - ip http client source-interface {{ ssh_interface }}
+        save_when: always
+      when: ansible_network_os == "nxos"
