@@ -78,7 +78,7 @@
       debug:
         msg: >-
           {% if ssh_interface is defined and ssh_interface|length > 0 %}
-            Interface for SSH IP {{ ansible_host }}: {{ ssh_interface }}
+            Interface for SSH IP {{ ansible_host }}: {{ ssh_interface | first }}
           {% else %}
             No interface found with IP {{ ansible_host }}.
             Outputs collected:
