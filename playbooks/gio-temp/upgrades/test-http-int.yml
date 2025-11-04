@@ -4,6 +4,16 @@
   gather_facts: false
   
   tasks:
+    - name: Display available inventory groups
+      debug:
+        msg: |
+          Available groups:
+          {% for g in groups.keys() | sort %}
+          - {{ g }}
+          {% endfor %}
+          
+          You can specify host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+
     - name: Prompt for target hosts
       pause:
         prompt: "Enter target hosts (comma-separated)"
