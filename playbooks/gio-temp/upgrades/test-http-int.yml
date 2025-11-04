@@ -50,7 +50,7 @@
         commands:
           - "show ip interface brief | include {{ ansible_host }}"
       register: ip_brief
-      when: ansible_network_os == "ios"
+      #when: ansible_network_os == "ios"
       ignore_errors: yes
 
     # - name: Run on IOS XR
