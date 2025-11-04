@@ -39,11 +39,11 @@
   tasks:
     - name: Download correct images and fill in values within images.yml for these platforms
       debug:
-        msg: "{{ groups.keys() | difference(skip_groups) | list }}"
+        msg: "{{ groups.keys() | list }}"
 
     - name: Check that all of these platform series have correct values, if you see MISSING, verify images.yml
       vars:
-        all_groups: "{{ groups.keys() | difference(skip_groups) | list }}"
+        all_groups: "{{ groups.keys() | list }}"
       debug:
         msg: |
           Group: {{ item }}
