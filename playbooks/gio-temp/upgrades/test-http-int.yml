@@ -45,7 +45,7 @@
 
     - name: Extract interface name from 'show ip interface brief' output
       set_fact:
-        ssh_interface: "{{ ip_brief.stdout[0] | regex_search('^(\\S+)', '\\1') }}"
+        ssh_interface: "{{ (ip_brief.stdout | regex_findall('^(\\S+)')) | first }}"
       when:
         - ip_brief is defined
         - ip_brief.stdout is defined
