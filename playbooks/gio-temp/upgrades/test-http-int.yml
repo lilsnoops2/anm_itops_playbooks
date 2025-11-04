@@ -1,26 +1,18 @@
 ---
-- name: Inventory Selection
+- name: Prompt for variables if needed
   hosts: localhost
   gather_facts: false
-
-  vars_prompt:
-    - name: target_hosts
-      prompt: |
-        Available groups:
-        {% for g in groups.keys() | sort %}
-        - {{ g }}
-        {% endfor %}
-        
-        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
-      private: no
-      when: target_hosts is not defined
-
+  
   tasks:
-    - name: Store target hosts for next play
+    - name: Prompt for target hosts
+      pause:
+        prompt: "Enter target hosts (comma-separated)"
+      register: target_hosts_input
+      when: target_hosts is not defined or target_hosts == ""
+
+    - name: Set target_hosts
       set_fact:
-        target_hosts: "{{ target_hosts }}"
-      run_once: true
-      no_log: true
+        target_hosts: "{{ target_hosts_input.user_input if target_hosts_input is defined else target_hosts }}"
 
 
 - name: Update HTTP Source Interface on Devices
@@ -28,26 +20,31 @@
   gather_facts: false
   connection: network_cli
 
-  vars_prompt:
-    - name: ansible_user
-      prompt: "Enter username"
-      private: no
+  pre_tasks:
+    - name: Prompt for username
+      pause:
+        prompt: "Enter username"
+        echo: yes
+      register: user_input
       when: ansible_user is not defined
-    - name: ansible_password
-      prompt: "Enter password"
-      private: yes
-      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
 
+    - name: Prompt for password
+      pause:
+        prompt: "Enter password"
+        echo: no
+      register: pass_input
+      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set credentials
+      set_fact:
+        ansible_user: "{{ user_input.user_input if user_input is defined else ansible_user }}"
+        ansible_password: "{{ pass_input.user_input if pass_input is defined else ansible_password }}"
 
   tasks:
-
-    # - name: Show 'show ip interface brief' filtered for the target IP
-    #   ios_command:
-    #     commands:
-    #       - "show ip interface brief | include {{ ansible_host }}"
-    #   register: ip_brief
-    #   ignore_errors: yes
-
 
     - name: Run on IOS
       ios_command:
