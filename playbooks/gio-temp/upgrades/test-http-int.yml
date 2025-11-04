@@ -12,7 +12,7 @@
 
     - name: Set target_hosts
       set_fact:
-        target_hosts: "{{ target_hosts_input.user_input if target_hosts_input is defined else target_hosts }}"
+        target_hosts: "{{ target_hosts_input if target_hosts_input is defined else target_hosts }}"
 
 
 - name: Update HTTP Source Interface on Devices
