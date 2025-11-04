@@ -170,4 +170,4 @@
       ios_config:
         lines:
           - no system ignore startupconfig switch all
-      save_when: always
+        save_when: always
