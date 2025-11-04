@@ -96,6 +96,21 @@
             running-config section: {{ (run_cfg.stdout[0][:200] + '...') if (run_cfg is defined and run_cfg.stdout and run_cfg.stdout[0]) else 'n/a' }}
           {% endif %}
 
+    - name: Confirmation
+      run_once: true
+      delegate_to: localhost
+      vars:
+        summary: "CAUTION: review the above interfaces carefully before proceeding"
+      block:
+        - name: Confirm before deletion
+          pause:
+            prompt: "Type 'yes' to proceed with cleanup: "
+          register: confirm
+        - name: Abort if not confirmed
+          fail:
+            msg: "User cancelled configuration."
+          when: confirm.user_input | lower != 'yes'
+
     - name: Set HTTP source interface on IOS
       ios_config:
         lines:
