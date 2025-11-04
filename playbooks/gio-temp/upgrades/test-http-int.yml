@@ -77,10 +77,17 @@
         - ip_brief is defined
         - ip_brief.stdout is defined
 
-    - name: Normalize interface variable
+    - name: Normalize ssh_interface variable
       set_fact:
-        ssh_interface: "{{ ssh_interface_raw | regex_replace('[\\[\\]\\\"\\\'\\n\\r]', '') | trim }}"
+        ssh_interface: >-
+          {{ ssh_interface_raw
+            | replace('[','')
+            | replace(']','')
+            | replace("'",'')
+            | replace('"','')
+            | trim }}
       when: ssh_interface_raw is defined
+
 
     - name: Debug the detected interface
       debug:
