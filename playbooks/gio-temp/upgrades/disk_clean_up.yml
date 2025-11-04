@@ -110,6 +110,8 @@
     #   set_fact:
     #     cleanup_files: "{{ cleanup_files_list | unique }}"
 
+
+    #Need to fix, not matching running version currently
     - name: Finalize cleanup files (exclude running image)
       set_fact:
         cleanup_files: "{{ cleanup_files_list 
@@ -161,10 +163,11 @@
       ios_command:
         commands: "{{ cleanup_files | map('regex_replace', '^', 'delete /force ' ~ disk_name) | list }}"
       when: cleanup_files | length > 0
+
       
-    # - name: Set ROMVAR
-    #   when: platform_series == 'c9000'
-    #   ios_config:
-    #   lines:
-    #     - no system ignore startupconfig switch all
-    #   save_when: always
+    - name: Set ROMVAR
+      when: platform_series == 'c9000'
+      ios_config:
+        lines:
+          - no system ignore startupconfig switch all
+      save_when: always
