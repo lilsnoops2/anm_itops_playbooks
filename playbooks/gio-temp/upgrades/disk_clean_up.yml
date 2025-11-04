@@ -126,12 +126,12 @@
       set_fact:
         cleanup_files: "{{ cleanup_files_list 
                           | unique 
-                          | reject('search', ansible_net_image | basename)
+                          | reject('search', ansible_net_image | replace(disk_name,''))
                           | list }}"
 
     - name: Print a specific variable
       debug:
-        var: ansible_net_image | basename
+        var: ansible_net_image | replace(disk_name,'')
                         
     - name: Show matched files
       debug:
