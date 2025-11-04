@@ -39,14 +39,13 @@
 
   tasks:
 
-    - name: Enable mode if needed
+    - name: Set Vars
       set_fact:
         ansible_become_password: "{{ ansible_password }}"
         ansible_become: true
         ansible_become_method: enable
       run_once: true
       no_log: true
-
 
     - name: Gather facts for Devices
       ios_facts:

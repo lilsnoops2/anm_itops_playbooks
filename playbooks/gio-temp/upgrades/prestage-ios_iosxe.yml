@@ -1,5 +1,5 @@
 ---
-- name: IOSXE Upgrade Playbook
+- name: Inventory Selection
   hosts: localhost
   gather_facts: false
 
@@ -20,14 +20,13 @@
         target_hosts: "{{ target_hosts }}"
       run_once: true
       no_log: true
-- name: IOSXE Upgrade Playbook
+
+- name: Prestage Playbook
   hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
   vars_files: 
     - ./images.yml
   gather_facts: false
   connection: network_cli
-
-
 
   vars_prompt:
     - name: http_server
@@ -40,15 +39,12 @@
       prompt: "Enter password" 
       private: yes
 
-  vars:
-
-
   roles:
     - ansible-pyats
 
   tasks:
 
-    - name: Store answers as facts for next play
+    - name: Set Vars
       set_fact:
         ansible_become_password: "{{ ansible_password }}"
         ansible_become: true
