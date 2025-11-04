@@ -118,7 +118,7 @@
       ios_command:
         commands:
           - "show run | include http client source-interface"
-      register: http_config_verify
+      register: http_config_verify_ios
       when: 
         - ansible_network_os == "ios"
         - ssh_interface is defined and ssh_interface != ''
@@ -127,7 +127,7 @@
       iosxr_command:
         commands:
           - "show run | include http client source-interface"
-      register: http_config_verify
+      register: http_config_verify_xr
       when: 
         - ansible_network_os == "iosxr"
         - ssh_interface is defined and ssh_interface != ''
@@ -136,10 +136,14 @@
       nxos_command:
         commands:
           - "show run | include http client source-interface"
-      register: http_config_verify
+      register: http_config_verify_nxos
       when: 
         - ansible_network_os == "iosxr"
         - ssh_interface is defined and ssh_interface != ''
+
+    - name: Consolidate http_config_verify results
+      set_fact:
+        http_config_verify: "{{ http_config_verify_ios | default(http_config_verify_xr) | default(http_config_verify_nxos) }}"
 
     - name: Display verification results
       debug:
