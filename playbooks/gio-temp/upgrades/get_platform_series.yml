@@ -22,18 +22,12 @@
       no_log: true
 
 
-- name: IOSXE Upgrade Playbook
+- name: IShow group names (keys) from inventory
   hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
   vars_files: 
     - ./images.yml
   gather_facts: false
   connection: network_cli
-
-- name: Show group names (keys) from inventory
-  hosts: localhost
-  gather_facts: false
-  vars_files:
-    - ./images.yml
 
   vars:
     required_suffixes:
