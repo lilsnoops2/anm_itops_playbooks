@@ -37,24 +37,24 @@
       - "_image_code"
 
   tasks:
-    - name: Download correct images and fill in values within images.yml for these platforms
-      debug:
-        msg: "{{ groups.keys() | list }}"
+    # - name: Download correct images and fill in values within images.yml for these platforms
+    #   debug:
+    #     msg: "{{ groups.keys() | list }}"
 
     - name: Debug all variables for each host
       debug:
-        var: hostvars[inventory_hostname]
+        var: hostvars[inventory_hostname]["platform_series"]
 
-    - name: Check that all of these platform series have correct values, if you see MISSING, verify images.yml
-      vars:
-        all_groups: "{{ groups.keys() | list }}"
-      debug:
-        msg: |
-          Group: {{ item }}
-          {% set expected_vars = required_suffixes | map('regex_replace', '^(.*)$', item ~ '\\1') | list %}
-          {% for key in expected_vars %}
-          - {{ key }}: {{ vars.get(key, 'MISSING') }}
-          {% endfor %}
-      loop: "{{ all_groups }}"
-      loop_control:
-        label: "{{ item }}"
+    # - name: Check that all of these platform series have correct values, if you see MISSING, verify images.yml
+    #   vars:
+    #     all_groups: "{{ groups.keys() | list }}"
+    #   debug:
+    #     msg: |
+    #       Group: {{ item }}
+    #       {% set expected_vars = required_suffixes | map('regex_replace', '^(.*)$', item ~ '\\1') | list %}
+    #       {% for key in expected_vars %}
+    #       - {{ key }}: {{ vars.get(key, 'MISSING') }}
+    #       {% endfor %}
+    #   loop: "{{ all_groups }}"
+    #   loop_control:
+    #     label: "{{ item }}"
