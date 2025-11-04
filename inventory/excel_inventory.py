@@ -119,14 +119,16 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                     if any(x in cell_value for x in ("2960",)):
                         if any(x in cell_value for x in ("2960x", "2960xr")):
                             host_vars["platform_series"] = "c2960x"
-                        if any(x in cell_value for x in ("2960cx",)):
+                        elif any(x in cell_value for x in ("2960cx",)):
                             host_vars["platform_series"] = "c2960cx"
-                        if any(x in cell_value for x in ("2960l",)):
+                        elif any(x in cell_value for x in ("2960l",)):
                             host_vars["platform_series"] = "c2960x"
                         elif any(x in cell_value for x in ("2960c", "2960cg")):
                             host_vars["platform_series"] = "c2960c"
                         elif any(x in cell_value for x in ("2960s",)):
                             host_vars["platform_series"] = "c2960s"
+                        else:
+                            host_vars["platform_series"] = "2960"
                     elif any(x in cell_value for x in ("c1000",)):
                         host_vars["platform_series"] = "c1000"
                     elif any(x in cell_value for x in ("3750",)):
@@ -243,7 +245,6 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                     host_vars["pid"] = cell_value
                 elif row[i] is None:
                     host_vars[header] = "unknown"
-                    #host_vars["platform_series"] = "unknown"
                 else:
                     host_vars[header] = cell_value
         inventory["_meta"]["hostvars"][hostname] = host_vars
