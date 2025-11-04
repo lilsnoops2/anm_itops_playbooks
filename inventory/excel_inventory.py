@@ -243,7 +243,7 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                     host_vars["pid"] = cell_value
                 elif row[i] is None:
                     host_vars[header] = "unknown"
-                    host_vars["platform_series"] = "unknown"
+                    #host_vars["platform_series"] = "unknown"
                 else:
                     host_vars[header] = cell_value
         inventory["_meta"]["hostvars"][hostname] = host_vars
