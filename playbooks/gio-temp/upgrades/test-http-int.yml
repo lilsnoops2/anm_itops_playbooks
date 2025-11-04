@@ -1,0 +1,86 @@
+---
+- name: Update HTTP Source int
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: target_hosts
+      prompt: |
+        Available groups:
+        {% for g in groups.keys() | sort %}
+        - {{ g }}
+        {% endfor %}
+        
+        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+      private: no
+    
+  tasks:
+    - name: Store answers as facts for next play
+      set_fact:
+        target_hosts: "{{ target_hosts }}"
+      run_once: true
+      no_log: true
+
+- name: IOSXE Upgrade Playbook
+  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  gather_facts: false
+  connection: network_cli
+
+  vars_prompt:
+    - name: ansible_user
+      prompt: "Enter username"
+      private: no
+    - name: ansible_password
+      prompt: "Enter password" 
+      private: yes
+
+  tasks:
+
+    - name: Show 'show ip interface brief' filtered for the target IP
+      ios_command:
+        commands:
+          - "show ip interface brief | include {{ ansible_host }}"
+      register: ip_brief
+      ignore_errors: yes
+
+    - name: Extract interface name from 'show ip interface brief' output
+      set_fact:
+        ssh_interface: "{{ ip_brief.stdout[0] | regex_search('^(\\S+)', '\\1') }}"
+      when:
+        - ip_brief is defined
+        - ip_brief.stdout is defined
+        - ip_brief.stdout[0] | trim != ''
+
+    # - name: Fallback: get running-config interface section (only if we didn't find via brief)
+    #   ios_command:
+    #     commands:
+    #       - "show running-config | section ^interface"
+    #   register: run_cfg
+    #   when: ssh_interface is not defined
+    #   ignore_errors: yes
+
+    - name: Parse running-config for interface that has 'ip address <target_ip>'
+      set_fact:
+        ssh_interface: >-
+          {{ (
+             run_cfg.stdout[0].split('\ninterface ')[
+               # create list of interface blocks and select first block that contains the IP
+               ] | select('search', ('ip address\\s+' + (target_ip|regex_escape) + '\\b')) | list
+           )[0] | regex_search('^([^\\n]+)', '\\1') }}
+      when:
+        - ssh_interface is not defined
+        - run_cfg is defined
+        - run_cfg.stdout is defined
+        - run_cfg.stdout[0] | trim != ''
+
+    - name: Report result
+      debug:
+        msg: >-
+          {% if ssh_interface is defined and ssh_interface|length > 0 %}
+            Interface for SSH IP {{ target_ip }}: {{ ssh_interface }}
+          {% else %}
+            No interface found with IP {{ target_ip }}.
+            Outputs collected:
+            show ip interface brief: {{ ip_brief.stdout if (ip_brief is defined) else 'n/a' }}
+            running-config section: {{ (run_cfg.stdout[0][:200] + '...') if (run_cfg is defined and run_cfg.stdout and run_cfg.stdout[0]) else 'n/a' }}
+          {% endif %}
