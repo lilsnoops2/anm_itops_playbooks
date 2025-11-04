@@ -161,3 +161,10 @@
       ios_command:
         commands: "{{ cleanup_files | map('regex_replace', '^', 'delete /force ' ~ disk_name) | list }}"
       when: cleanup_files | length > 0
+      
+    - name: Set ROMVAR
+      when: platform_series == 'c9000'
+      ios_config:
+      save_when: always
+        lines:
+          - no system ignore startupconfig switch all
