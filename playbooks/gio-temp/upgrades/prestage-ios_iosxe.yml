@@ -26,7 +26,7 @@
     - ./images.yml
   gather_facts: false
   connection: network_cli
-  become: true
+
 
 
   vars_prompt:
@@ -41,7 +41,7 @@
       private: yes
 
   vars:
-  ansible_become: yes
+  ansible_become: true
   ansible_become_method: enable
   ansible_become_password: "{{ ansible_password }}"
 
