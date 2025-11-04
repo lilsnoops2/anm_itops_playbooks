@@ -43,7 +43,7 @@
   vars:
   ansible_become: yes
   ansible_become_method: enable
-  ansible_become_password: ansible_password
+  ansible_become_password: "{{ ansible_password }}"
 
   roles:
     - ansible-pyats
