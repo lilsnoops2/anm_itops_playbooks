@@ -69,21 +69,11 @@
     #   when: ansible_network_os == "nxos"
     #   ignore_errors: yes
 
-    - name: Extract interface name from 'show ip interface brief' output
+    - name: Extract interface name
       set_fact:
-        ssh_interface: "{{ ip_brief.stdout[0] | regex_search('^(\\S+)', '\\1') }}"
-      when:
-        - ip_brief is defined
-        - ip_brief.stdout is defined
-        - ip_brief.stdout[0] | trim != ''
+        ssh_interface: "{{ (ip_brief.stdout<sup>1</sup> | regex_search('^(\\S+)')) or '' }}"
+      when: ip_brief.stdout is defined and ip_brief.stdout<sup>1</sup> | trim != ''
 
-    # - name: Fallback: get running-config interface section (only if we didn't find via brief)
-    #   ios_command:
-    #     commands:
-    #       - "show running-config | section ^interface"
-    #   register: run_cfg
-    #   when: ssh_interface is not defined
-    #   ignore_errors: yes
 
     - name: Parse running-config for interface that has 'ip address <ansible_host>'
       set_fact:
@@ -99,21 +89,12 @@
         - run_cfg.stdout is defined
         - run_cfg.stdout[0] | trim != ''
 
-    - name: Report result
-      debug:
-        msg: >-
-          {% if ssh_interface is defined and ssh_interface|length > 0 %}
-            Interface for SSH IP {{ ansible_host }}: {{ ssh_interface | first }}
-          {% else %}
-            No interface found with IP {{ ansible_host }}.
-            Outputs collected:
-            show ip interface brief: {{ ip_brief.stdout if (ip_brief is defined) else 'n/a' }}
-            running-config section: {{ (run_cfg.stdout[0][:200] + '...') if (run_cfg is defined and run_cfg.stdout and run_cfg.stdout[0]) else 'n/a' }}
-          {% endif %}
+    - name: Verify interface was found
+      fail:
+        msg: "Could not determine SSH interface for {{ ansible_host }}"
+      when: ssh_interface is not defined or ssh_interface == ''
 
-    - name: Set HTTP Source 
+    - name: Set HTTP Source
       ios_config:
-        lines: ip http client source-interface {{ ssh_interface | first }}
-        replace: line
-        save_when: always
-        #match: exact
+        lines: "ip http client source-interface {{ ssh_interface }}"
+      when: ssh_interface is defined and ssh_interface != ''
