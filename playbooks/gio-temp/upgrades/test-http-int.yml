@@ -46,7 +46,7 @@
         commands:
           - "show ip interface brief | include {{ ansible_host }}"
       register: ip_brief
-      when: ansible_network_os == "cisco.ios"
+      when: ansible_network_os == "ios"
       ignore_errors: yes
 
     - name: Run on IOS XR
@@ -54,7 +54,7 @@
         commands:
           - "show ipv4 interface brief | include {{ ansible_host }}"
       register: ip_brief
-      when: ansible_network_os == "cisco.iosxr"
+      when: ansible_network_os == "iosxr"
       ignore_errors: yes
 
     - name: Run on NX-OS
@@ -62,7 +62,7 @@
         commands:
           - "show ip interface brief | include {{ ansible_host }}"
       register: ip_brief
-      when: ansible_network_os == "cisco.nxos"
+      when: ansible_network_os == "nxos"
       ignore_errors: yes
 
 
@@ -104,7 +104,7 @@
           - ip http client source-interface {{ ssh_interface }}
         save_when: always
       when:
-        - ansible_network_os == "cisco.ios"
+        - ansible_network_os == "ios"
         - ssh_interface is defined and ssh_interface | length > 0
 
     - name: Set HTTP source interface on IOS XR
@@ -113,7 +113,7 @@
           - http client source-interface {{ ssh_interface }}
         commit: yes
       when:
-        - ansible_network_os == "cisco.iosxr"
+        - ansible_network_os == "iosxr"
         - ssh_interface is defined and ssh_interface | length > 0
 
     - name: Set HTTP source interface on NX-OS
@@ -122,5 +122,5 @@
           - ip http client source-interface {{ ssh_interface }}
         save_when: always
       when:
-        - ansible_network_os == "cisco.nxos"
+        - ansible_network_os == "nxos"
         - ssh_interface is defined and ssh_interface | length > 0
