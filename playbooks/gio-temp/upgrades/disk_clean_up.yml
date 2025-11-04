@@ -165,6 +165,6 @@
     - name: Set ROMVAR
       when: platform_series == 'c9000'
       ios_config:
-      save_when: always
         lines:
           - no system ignore startupconfig switch all
+      save_when: always
