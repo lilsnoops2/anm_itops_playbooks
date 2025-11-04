@@ -88,9 +88,9 @@
       debug:
         msg: >-
           {% if ssh_interface is defined and ssh_interface|length > 0 %}
-            Interface for SSH IP {{ target_ip }}: {{ ssh_interface }}
+            Interface for SSH IP {{ ansible_host }}: {{ ssh_interface }}
           {% else %}
-            No interface found with IP {{ target_ip }}.
+            No interface found with IP {{ ansible_host }}.
             Outputs collected:
             show ip interface brief: {{ ip_brief.stdout if (ip_brief is defined) else 'n/a' }}
             running-config section: {{ (run_cfg.stdout[0][:200] + '...') if (run_cfg is defined and run_cfg.stdout and run_cfg.stdout[0]) else 'n/a' }}
