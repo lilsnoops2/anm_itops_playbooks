@@ -196,7 +196,7 @@
               - command: 'copy http://{{http_server}}/http/{{ target_image }} {{ flash_dir }}'
                 check_all: True  
                 prompt:
-                  - "Destination filename [{{ target_image }}]?"
+                  - 'Destination filename [{{ target_image }}]?'
                 answer:
                   - "\r" 
             wait_for:
