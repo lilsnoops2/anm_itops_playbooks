@@ -111,19 +111,6 @@
         gather_subset:
           - all
 
-    - name: Check Current files
-      tags: pre-check, install, image-check, image-copy
-      ios_command:
-        commands: "dir {{ flash_dir }}" 
-      register: image_check
-
-    - name: Set image check as fact
-      tags: pre-check, install, image-check, image-copy
-      set_fact:
-        dir_image_check: "{{ image_check.stdout[0] | regex_search(image_var, multiline=True) }}"
-      vars: 
-        image_var: "{{ target_image }}"
-
     - name: Set all device facts
       tags: pre-check, check-version, post-check, install
       set_fact:
@@ -137,6 +124,19 @@
         current_ver: "{{ ansible_net_version }}"
         ios_type: "{{ ansible_net_iostype }}"
         target_image_size_kb: "{{ target_image_size | int / 1000 }}"
+
+    - name: Check Current files
+      tags: pre-check, install, image-check, image-copy
+      ios_command:
+        commands: "dir {{ flash_dir }}" 
+      register: image_check
+
+    - name: Set image check as fact
+      tags: pre-check, install, image-check, image-copy
+      set_fact:
+        dir_image_check: "{{ image_check.stdout[0] | regex_search(image_var, multiline=True) }}"
+      vars: 
+        image_var: "{{ target_image }}"
 
 
   #   ##set install/bundle mode
