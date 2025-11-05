@@ -177,6 +177,7 @@
           fail:
             msg: "User cancelled configuration."
           when: confirm.user_input | lower != 'yes'
+      when: confirm is not defined and confirm != "yes"
 
 
     - name: Cleaning up unnecessary package files
