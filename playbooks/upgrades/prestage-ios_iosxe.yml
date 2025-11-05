@@ -117,6 +117,7 @@
         device_mode: "{{ 'install' if ansible_net_image is search('packages.conf') else 'bundle' }}"
         target_image: "{{ lookup('vars', platform_series | lower + '_target_image') }}"
         target_image_md5: "{{ lookup('vars', platform_series | lower + '_md5_hash') }}"
+        target_image_size: "{{ lookup('vars', platform_series | lower + '_image_size_bytes') }}"
         target_image_size_kb: "{{ lookup('vars', platform_series | lower + '_image_size_bytes') | int / 1000 }}"
         target_ver: "{{ lookup('vars', platform_series | lower + '_image_code') }}"
         flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
