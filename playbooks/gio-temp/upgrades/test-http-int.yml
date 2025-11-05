@@ -5,6 +5,7 @@
   
   tasks:
     - name: Display available inventory groups
+      when: target_hosts is not defined
       debug:
         msg: |
           Available groups:
@@ -89,6 +90,7 @@
     - name: Consolidate ip_brief results
       set_fact:
         ip_brief: "{{ ip_brief_ios | default(ip_brief_iosxr) | default(ip_brief_nxos) }}"
+      no_log: true
 
     - name: Extract interface name
       set_fact:
