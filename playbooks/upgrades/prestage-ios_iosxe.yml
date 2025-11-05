@@ -168,6 +168,25 @@
         free_space: "{{ (filesystem_check.stdout[0] | regex_search('\\((\\d+) bytes free\\)', '\\1'))[0] | int }}"
       when: filesystem_check.stdout is defined and filesystem_check.stdout[0] is defined
 
+    - name: Debug all device facts
+      debug:
+        msg: |
+          Device Configuration Facts:
+          ========================
+          Device Mode: {{ device_mode }}
+          Target Image: {{ target_image }}
+          Target Image MD5: {{ target_image_md5 }}
+          Target Image Size: {{ target_image_size }}
+          Target Image Size KB: {{ target_image_size_kb }}
+          Target Version: {{ target_ver }}
+          Flash Directory: {{ flash_dir }}
+          Timestamp: {{ timestamp }}
+          Current Version: {{ current_ver }}
+          IOS Type: {{ ios_type }}
+          Device Upgraded: {{ device_upgraded }}
+          Dir Image Check: {{ dir_image_check | default('NOT FOUND') }}
+          Free Space: {{ free_space | default('NOT CALCULATED') }}
+
     ## Configuration backup
     - name: Config Backup /opt/ansible_local/anm_itops_playbooks/backup
       tags: backup, install
