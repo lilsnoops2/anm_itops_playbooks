@@ -104,7 +104,7 @@
       run_once: true
       delegate_to: localhost
 
-    ##Gather Facts to display
+    ##Gather Facts and set vars
     - name: Gather facts for Devices
       tags: pre-check, check-version, install, upgrade
       ios_facts:
@@ -150,6 +150,8 @@
           dir_path: ./backup
       register: config_output
 
+
+    #Check  if device is currently running target image, mark completed and succesful if so
     - name: Assert that switch is NOT running with the target IOS
       block:
         - name: Check running image
@@ -163,7 +165,7 @@
           set_fact:
             device_upgraded: true
 
-    ## Check the disk space
+    ## Check the disk space, fail device if not enough space
     - name: Assert Enough Disk Space Available
       when: not device_upgraded
 
@@ -175,7 +177,7 @@
           - ansible_net_filesystems_info[flash_dir]['spacefree_kb'] | int > target_image_size_kb | int
 
 
-    ## Ansible to copy the image via HTTP
+    ## Copy the image via HTTP if image is not in flash
     - name: Copy IOSXE Image if does NOT exists in the {{ flash_dir }} dir
       when: not device_upgraded
       block:
@@ -200,9 +202,8 @@
             wait_for:
               - result[0] contains {{ target_image_size }} bytes copied
           vars:
-            ansible_command_timeout: 3000
-            ansible_connect_timeout: 3000
-            #ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
+            ansible_command_timeout: 3600
+            ansible_connect_timeout: 3600
           no_log: false
           register: image_copy
 
@@ -220,8 +221,8 @@
         wait_for:
           - result[0] contains Verified
       vars:
-        ansible_command_timeout: 3000
-        ansible_connect_timeout: 3000
+        ansible_command_timeout: 3600
+        ansible_connect_timeout: 3600
         #ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
       register: image_validation_result
 
@@ -233,9 +234,9 @@
             To upgrade use: {{ 
               ('install add file ' ~ flash_dir ~ target_image ~ ' activate commit') 
               if device_mode == 'install' 
-              'install add file ' ~ flash_dir ~ target_image ~ ' activate commit') 
+              ('install add file ' ~ flash_dir ~ target_image ~ ' activate commit') 
               else if device_mode == 'bundle' and  platform_os == 'ios_xe'
-              'install all ' ~ flash_dir ~ target_image) 
+              ('install all ' ~ flash_dir ~ target_image) 
               else if platform_os == 'nxos'
               else 
               ('archive download-sw ' ~ flash_dir ~ target_image)
