@@ -111,6 +111,19 @@
         gather_subset:
           - all
 
+    - name: Check Current files
+      tags: pre-check, install, image-check, image-copy
+      ios_command:
+        commands: "dir {{ flash_dir }}" 
+      register: image_check
+
+    - name: Set image check as fact
+      tags: pre-check, install, image-check, image-copy
+      set_fact:
+        dir_image_check: "{{ image_check.stdout[0] | regex_search(image_var, multiline=True) }}"
+      vars: 
+        image_var: "{{ target_image }}"
+
     - name: Set all device facts
       tags: pre-check, check-version, post-check, install
       set_fact:
@@ -120,6 +133,10 @@
         target_image_size: "{{ lookup('vars', platform_series | lower + '_image_size_bytes') }}"
         target_ver: "{{ lookup('vars', platform_series | lower + '_image_code') }}"
         flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
+        timestamp:  "{{ lookup('pipe','date \"+%Y-%m-%d\"') }}"
+        current_ver: "{{ ansible_net_version }}"
+        ios_type: "{{ ansible_net_iostype }}"
+        target_image_size_kb: "{{ target_image_size | int / 1000 }}"
 
 
   #   ##set install/bundle mode
@@ -177,29 +194,27 @@
   #       flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
 
      ##print variables 
-    - name: Basic Facts for "{{ inventory_hostname }}"
-      vars:
-        msg: |
-          Device Model: {{ pid }}
-          Device Platform: {{ platform_series }}
-          Serial Number: {{ ansible_net_serialnum }}
-          Current IOS Version: {{ ansible_net_version }}
-          Current IOS Dir: {{ flash_dir }}
-          IOS Type: {{ platform_os }}
-          Install Mode: {{ device_mode }}
-          Target Image: {{ target_image }}
-          Target Image Code: {{ target_ver }}
-          Target Image Hash: {{ target_image_md5 }}
-          Target Image size: {{ target_image_size }}
-          Free Diskspace (kb): {{ ansible_net_filesystems_info[flash_dir]['spacefree_kb'] }}
-      debug:
-        msg: "{{ msg.split('\n') }}"
-      tags: pre-check, check-version, install
+
+
+    # - name: Basic Facts for "{{ inventory_hostname }}"
+    #   vars:
+    #     msg: |
+    #       Device Model: {{ pid }}
+    #       Device Platform: {{ platform_series }}
+    #       Serial Number: {{ ansible_net_serialnum }}
+    #       Current IOS Version: {{ ansible_net_version }}
+    #       Current IOS Dir: {{ flash_dir }}
+    #       IOS Type: {{ platform_os }}
+    #       Install Mode: {{ device_mode }}
+    #       Target Image: {{ target_image }}
+    #       Target Image Code: {{ target_ver }}
+    #       Target Image Hash: {{ target_image_md5 }}
+    #       Target Image size: {{ target_image_size }}
+    #       Free Diskspace (kb): {{ ansible_net_filesystems_info[flash_dir]['spacefree_kb'] }}
+    #   debug:
+    #     msg: "{{ msg.split('\n') }}"
+    #   tags: pre-check, check-version, install
    
-    ##set time variable to use in config file name
-    - name: Set the current time as a fact
-      tags: backup, install
-      set_fact: timestamp="{{ lookup('pipe','date \"+%Y-%m-%d\"') }}"
 
     ## Configuration backup
     - name: Config Backup for {{ inventory_hostname }}
@@ -211,49 +226,27 @@
           dir_path: ./backup
       register: config_output
 
-    ## Set IOS Version/Type and check if running current version
-    - name: Set fact for the current IOS version
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        current_ver: "{{ ansible_net_version }}"
-
-    - name: Set fact for the current IOS Type
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        ios_type: "{{ ansible_net_iostype }}"
-
-    - name: Set fact for image size
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_image_size_kb: "{{ target_image_size | int / 1000 }}"
-
-    - name: Debug parsed output for the current IOS version
-      debug:
-        msg: "{{ inventory_hostname }} currently running with {{ current_ver }}"
+    # - name: Debug parsed output for the current IOS version
+    #   debug:
+    #     msg: "{{ inventory_hostname }} currently running with {{ current_ver }}"
 
     - name: Assert that switch is NOT running with the target IOS
-      tags: pre-check, check-version, install
-      assert:
-        success_msg: "{{ inventory_hostname }} not running target version {{ target_ver }}, current version is {{ current_ver }}"
-        fail_msg: "{{ inventory_hostname }} already running {{ target_ver }}"
-        that: current_ver != target_ver
-      
-    ## Check if device has the target image
-    - name: Check Current files
-      tags: pre-check, install, image-check, image-copy
-      ios_command:
-        commands: "dir {{ flash_dir }}" 
-      register: image_check
+      block:
+        - name: check image
+          assert:
+            success_msg: "{{ inventory_hostname }} not running target version {{ target_ver }}, current version is {{ current_ver }}"
+            fail_msg: "{{ inventory_hostname }} already running {{ target_ver }}"
+            that: current_ver != target_ver
 
-    - name: Set image check as fact
-      tags: pre-check, install, image-check, image-copy
-      set_fact:
-        dir_image_check: "{{ image_check.stdout[0] | regex_search(image_var, multiline=True) }}"
-      vars: 
-        image_var: "{{ target_image }}"
+      rescue:
+        - name: Checks Status
+          set_fact:
+            device_upgraded: true
+
 
     ## Check the disk space
     - name: Assert Enough Disk Space Available
+      when: device_upgraded != "true"
       tags: image-copy, install
       assert:
         success_msg: "Enough disk space is available to accommodate target image."
@@ -264,9 +257,9 @@
 
     ## Ansible to copy the image via HTTP
     - name: Copy IOSXE Image if does NOT exists in the {{ flash_dir }} dir
+      when: device_upgraded != "true"
       block:
         - name: Assert {{ flash_dir }} does NOT contain target image before copy
-          tags: image-copy, install
           assert:
             quiet: false
             success_msg: '{{ target_image }} NOT in {{ flash_dir }}'
@@ -299,6 +292,7 @@
             msg: "Some checks are failed, please review the output..."
 
     - name: Target image MD5 File Validation
+      when: device_upgraded != "true"
       tags: image-validate, install
       ios_command:
         commands:
