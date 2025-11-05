@@ -46,6 +46,15 @@
       debug:
         var: hostvars[inventory_hostname]["platform_series"]
 
+    - name: Show platform series for selected hosts/groups
+      debug:
+        msg: |
+          Platform series in use:
+          {% for platform in ansible_play_hosts | map('extract', hostvars, 'platform_series') | list | unique | sort %}
+          - {{ platform }}
+          {% endfor %}
+      run_once: true
+
     # - name: Check that all of these platform series have correct values, if you see MISSING, verify images.yml
     #   vars:
     #     all_groups: "{{ groups.keys() | list }}"
