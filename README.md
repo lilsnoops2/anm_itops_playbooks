@@ -12,6 +12,7 @@ This is a collection of playbooks for ANM ITOps automation
     - [`configure_snmpv3`](#configure_snmpv3)
     - [`remove_snmp`](#remove_snmp)
     - [`http_server`](#http_server)
+  - [Prestage](#prestage)
 
 ## Setup
 ### General Setup
@@ -150,5 +151,49 @@ ansible-playbook http_server.yml -i inventory.ini -e 'acl_name=test_acl acl_ips=
 Remove http-server config from device
 ```bash
 ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit network -u admin -k
-
 ```
+
+## Prestage:
+### Pre Reqs:
+1. First determine what platform series are available, this list will be used to download the images from Cisco
+2. Run the get_platform_series playbook for example:
+ansible-playbook playbooks/upgrades/get_platform_series.yml  -e 'target_hosts=switch,router' (Review section for this playbook for further options)
+
+3. The last task will show you a list of device platforms based on the inventory selected, for example:
+
+TASK [Show platform series for selected hosts/groups] ******************************************************************
+ok: [ABQ-CORE-01] =>
+  msg: |-
+    Platform series in use:
+    - c2960cx
+    - c2960x
+    - c3560cx
+    - c9000
+    - isr4300
+
+4. Go to Cisco and download software for each of these platforms, open up images.yml in Visual Studio (Linux /opt/ansible_local/anm_itops_playbooks/upgrades). If images.yml does not exist, make a copy of images-sample.yml and rename to images.yml
+While downloading the software from cisco, make sure to grab the following information and fill out the appropriate device platform in images.yml. For example:
+##2960x 2960xr
+c2960x_target_image: c2960x-universalk9-mz.152-7.E13.tar
+c2960x_md5_hash: 03a1a35666ef516b35e487c31db8e9f9
+c2960x_image_size_bytes: 26796032
+c2960x_image_code: 15.2(7)E13
+
+5. Save images.yml
+6. Once images are downloaded, move the images to the http folder on the desktop (if http folder is missing, refer to Video to set up HTTP server on jumpbox)
+
+NOTE: Make sure that you download .tar files for any IOS device to ensure that archive download-sw can be used:
+2960 devices
+3560 devices
+3750 devices
+
+### Disk Clean Up:
+1. Run Disk  Clean up playbook to run through devices and clean up old images to prepare for new image, for example:
+ansible-playbook playbooks/upgrades/disk_clean_up.yml  -e 'target_hosts=switch,router' -e 'ansible_user=user' -e 'ansible_password=password' -e 'confirm=yes' (Review section for this playbook for further options)
+2. If any devices failed, you may need to manually clean them up
+
+### Image Upload:
+1. Run the prestage playbook, for example:
+ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -e 'target_hosts=switch,router' -e 'ansible_user=user' -e 'ansible_password=password' -e 'http_server=172.22.15.110'
+2. If any devices fail, review the failures and fix issues (such as cleaning disk space or fixing http clinet source interface)
+3. After fixing devices, you can run on failed devices again by running: 
