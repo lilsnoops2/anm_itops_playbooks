@@ -1,31 +1,34 @@
 ---
-- name: IOSXE Upgrade Playbook
+- name: Prompt for variables if needed
   hosts: localhost
   gather_facts: false
-
-  vars_prompt:
-    - name: target_hosts
-      prompt: |
-        Available groups:
-        {% for g in groups.keys() | sort %}
-        - {{ g }}
-        {% endfor %}
-        
-        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
-      private: no
-    
+  
   tasks:
-    - name: Store answers as facts for next play
+    - name: Display available inventory groups
+      when: target_hosts is not defined
+      debug:
+        msg: |
+          Available groups:
+          {% for g in groups.keys() | sort %}
+          - {{ g }}
+          {% endfor %}
+          
+          You can specify host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
+
+    - name: Prompt for target hosts
+      pause:
+        prompt: "Enter target hosts (comma-separated)"
+      register: target_hosts_input
+      when: target_hosts is not defined or target_hosts == ""
+
+    - name: Set target_hosts
       set_fact:
-        target_hosts: "{{ target_hosts }}"
-      run_once: true
-      no_log: true
+        target_hosts: "{{ target_hosts_input.user_input }}"
+      when: target_hosts_input is defined and target_hosts_input.user_input is defined
 
 
-- name: IShow group names (keys) from inventory
+- name: Get Device platforms Playbook
   hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
-  vars_files: 
-    - ./images.yml
   gather_facts: false
   connection: network_cli
 
