@@ -247,7 +247,7 @@
       rescue:
         - name: Checks Status
           set_fact:
-            device_upgraded: true
+            device_upgraded: "true"
 
         - debug:
             msg: "{{ device_upgraded }}"
