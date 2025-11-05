@@ -247,7 +247,7 @@
       rescue:
         - name: Checks Status
           set_fact:
-            device_upgraded: "complete"
+            device_upgraded: true
 
         - debug:
             msg: "{{ device_upgraded }}"
@@ -255,7 +255,7 @@
 
     ## Check the disk space
     - name: Assert Enough Disk Space Available
-      when: device_upgraded != "complete"
+      when: not device_upgraded
       tags: image-copy, install
       assert:
         success_msg: "Enough disk space is available to accommodate target image."
@@ -266,7 +266,7 @@
 
     ## Ansible to copy the image via HTTP
     - name: Copy IOSXE Image if does NOT exists in the {{ flash_dir }} dir
-      when: device_upgraded != "complete"
+      when: not device_upgraded
       block:
         - name: Assert {{ flash_dir }} does NOT contain target image before copy
           assert:
@@ -301,7 +301,7 @@
             msg: "Some checks are failed, please review the output..."
 
     - name: Target image MD5 File Validation
-      when: device_upgraded != "complete"
+      when: not device_upgraded
       tags: image-validate, install
       ios_command:
         commands:
@@ -314,12 +314,13 @@
         #ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
       register: image_validation_result
 
-    - debug:
-        msg: |
-          MD5 - {{ image_validation_result.stdout_lines | replace('.', '') }}
-          To upgrade use: {{ 
-            ('install add file ' ~ flash_dir ~ target_image ~ ' activate commit') 
-            if device_mode == 'install' 
-            else 
-            ('archive download-sw ' ~ flash_dir ~ target_image)
-          }}
+    - name: output results
+      debug:
+          msg: |
+            MD5 - {{ image_validation_result.stdout_lines | replace('.', '') }}
+            To upgrade use: {{ 
+              ('install add file ' ~ flash_dir ~ target_image ~ ' activate commit') 
+              if device_mode == 'install' 
+              else 
+              ('archive download-sw ' ~ flash_dir ~ target_image)
+            }}
