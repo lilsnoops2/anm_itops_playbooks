@@ -315,6 +315,7 @@
       register: image_validation_result
 
     - name: output results
+      when: not device_upgraded
       debug:
           msg: |
             MD5 - {{ image_validation_result.stdout_lines | replace('.', '') }}
