@@ -169,9 +169,7 @@
     - name: Check multiple possible flash directories
       ios_command:
         commands:
-          - "dir flash: | include bytes"
-          - "dir bootflash: | include bytes"  
-          - "dir disk0: | include bytes"
+          - "dir {{ flash_dir }} | include bytes"
       register: flash_checks
       ignore_errors: yes
 
