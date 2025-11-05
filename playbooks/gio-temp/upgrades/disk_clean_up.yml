@@ -1,3 +1,4 @@
+#ansible-playbook playbooks/gio-temp/upgrades/disk_clean_up.yml -e 'target_hosts=c9200l' -e 'ansible_user=user' -e 'ansible_password=password' -e 'confirm=yes'
 ---
 - name: Prompt for variables if needed
   hosts: localhost

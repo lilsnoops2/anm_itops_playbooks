@@ -1,3 +1,4 @@
+# ansible-playbook playbooks/gio-temp/upgrades/get_platform_series.yml -e "target_hosts=c9200l"
 ---
 - name: Prompt for variables if needed
   hosts: localhost
