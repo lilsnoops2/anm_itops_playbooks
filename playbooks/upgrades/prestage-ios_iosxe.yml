@@ -247,7 +247,7 @@
       rescue:
         - name: Checks Status
           set_fact:
-            device_upgraded: "true"
+            device_upgraded: "complete"
 
         - debug:
             msg: "{{ device_upgraded }}"
@@ -255,7 +255,7 @@
 
     ## Check the disk space
     - name: Assert Enough Disk Space Available
-      when: device_upgraded != "true"
+      when: device_upgraded != "complete"
       tags: image-copy, install
       assert:
         success_msg: "Enough disk space is available to accommodate target image."
@@ -266,7 +266,7 @@
 
     ## Ansible to copy the image via HTTP
     - name: Copy IOSXE Image if does NOT exists in the {{ flash_dir }} dir
-      when: device_upgraded != "true"
+      when: device_upgraded != "complete"
       block:
         - name: Assert {{ flash_dir }} does NOT contain target image before copy
           assert:
@@ -301,7 +301,7 @@
             msg: "Some checks are failed, please review the output..."
 
     - name: Target image MD5 File Validation
-      when: device_upgraded != "true"
+      when: device_upgraded != "complete"
       tags: image-validate, install
       ios_command:
         commands:
