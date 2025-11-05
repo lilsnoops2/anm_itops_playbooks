@@ -123,6 +123,11 @@
         timestamp:  "{{ lookup('pipe','date \"+%Y-%m-%d\"') }}"
         current_ver: "{{ ansible_net_version }}"
         ios_type: "{{ ansible_net_iostype }}"
+        
+
+    - name: Set target image size
+      tags: pre-check, check-version, post-check, install
+      set_fact:
         target_image_size_kb: "{{ target_image_size | int / 1000 }}"
 
     - name: Check Current files
