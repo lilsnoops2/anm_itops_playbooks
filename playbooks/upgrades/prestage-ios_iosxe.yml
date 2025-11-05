@@ -110,59 +110,71 @@
       ios_facts:
         gather_subset:
           - all
-    ##set install/bundle mode
-    - name: Detect install or bundle mode
+
+    - name: Set all device facts
+      tags: pre-check, check-version, post-check, install
       set_fact:
         device_mode: "{{ 'install' if ansible_net_image is search('packages.conf') else 'bundle' }}"
-
-    ##set target_image
-    - name: Set Fact for target image name using platform
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        raw_target_image: "{{ platform_series | lower }}_target_image"
-
-    - name: Set Fact for target image using platform
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_image: "{{ lookup('vars', raw_target_image) }}"
-
-    ##set target_image_md5
-    - name: Set Fact for target image name using platform
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_image_md5_raw: "{{ platform_series | lower }}_md5_hash"
-
-    - name: Set Fact for target md5
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_image_md5: "{{ lookup('vars', target_image_md5_raw) }}"
-
-    ##set target_image_size
-    - name: Set Fact for target image name using platform
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_image_size_raw: "{{ platform_series | lower }}_image_size_bytes"
-
-    - name: Set Fact for target md5
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_image_size: "{{ lookup('vars', target_image_size_raw) }}"
-
-    ##set target_ver
-    - name: Set Fact for target image code
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_image_code_raw: "{{ platform_series | lower }}_image_code"
-
-    - name: Set Fact for target md5
-      tags: pre-check, check-version, post-check, install
-      set_fact:
-        target_ver: "{{ lookup('vars', target_image_code_raw) }}"
-   ##set flash_dir
-    - name: Set Flash Directory Fact
-      tags: pre-check, check-version, post-check, install
-      set_fact:
+        target_image: "{{ lookup('vars', platform_series | lower + '_target_image') }}"
+        target_image_md5: "{{ lookup('vars', platform_series | lower + '_md5_hash') }}"
+        target_image_size: "{{ lookup('vars', platform_series | lower + '_image_size_bytes') }}"
+        target_ver: "{{ lookup('vars', platform_series | lower + '_image_code') }}"
         flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
+
+
+  #   ##set install/bundle mode
+  #   - name: Detect install or bundle mode
+  #     set_fact:
+  #       device_mode: "{{ 'install' if ansible_net_image is search('packages.conf') else 'bundle' }}"
+
+  #   ##set target_image
+  #   - name: Set Fact for target image name using platform
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       raw_target_image: "{{ platform_series | lower }}_target_image"
+
+  #   - name: Set Fact for target image using platform
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       target_image: "{{ lookup('vars', raw_target_image) }}"
+
+  #   ##set target_image_md5
+  #   - name: Set Fact for target image name using platform
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       target_image_md5_raw: "{{ platform_series | lower }}_md5_hash"
+
+  #   - name: Set Fact for target md5
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       target_image_md5: "{{ lookup('vars', target_image_md5_raw) }}"
+
+  #   ##set target_image_size
+  #   - name: Set Fact for target image name using platform
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       target_image_size_raw: "{{ platform_series | lower }}_image_size_bytes"
+
+  #   - name: Set Fact for target md5
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       target_image_size: "{{ lookup('vars', target_image_size_raw) }}"
+
+  #   ##set target_ver
+  #   - name: Set Fact for target image code
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       target_image_code_raw: "{{ platform_series | lower }}_image_code"
+
+  #   - name: Set Fact for target md5
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       target_ver: "{{ lookup('vars', target_image_code_raw) }}"
+  #  ##set flash_dir
+  #   - name: Set Flash Directory Fact
+  #     tags: pre-check, check-version, post-check, install
+  #     set_fact:
+  #       flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
 
      ##print variables 
     - name: Basic Facts for "{{ inventory_hostname }}"
