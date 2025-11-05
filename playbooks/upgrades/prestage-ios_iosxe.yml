@@ -141,7 +141,7 @@
         image_var: "{{ target_image }}"
 
     ## Configuration backup
-    - name: Config Backup for {{ inventory_hostname }}
+    - name: Config Backup /opt/ansible_local/anm_itops_playbooks/backup
       tags: backup, install
       ios_config:
         backup: yes
