@@ -120,7 +120,7 @@
         target_image_size: "{{ lookup('vars', platform_series | lower + '_image_size_bytes') }}"
         target_image_size_kb: "{{ lookup('vars', platform_series | lower + '_image_size_bytes') | int / 1000 }}"
         target_ver: "{{ lookup('vars', platform_series | lower + '_image_code') }}"
-        flash_dir: "{{ ansible_net_image | replace(\"'\", '') | split(':') | first | lower }}:"
+        flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
         timestamp:  "{{ lookup('pipe','date \"+%Y-%m-%d\"') }}"
         current_ver: "{{ ansible_net_version }}"
         ios_type: "{{ ansible_net_iostype }}"
@@ -174,7 +174,7 @@
         success_msg: "Enough disk space is available to accommodate target image."
         fail_msg: 'Not enough disk space available for the target image!'
         that:
-          - ansible_net_filesystems_info[flash_dir]['spacefree_kb'] | int > target_image_size_kb | int
+          - (ansible_net_filesystems_info.get(flash_dir, {}).get('spacefree_kb', 0) | int) > (target_image_size_kb | int)
 
 
     ## Copy the image via HTTP if image is not in flash
