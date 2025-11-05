@@ -250,7 +250,7 @@
             device_upgraded: true
 
         - debug:
-          msg: "{{ device_upgraded }}"
+            msg: "{{ device_upgraded }}"
 
 
     ## Check the disk space
