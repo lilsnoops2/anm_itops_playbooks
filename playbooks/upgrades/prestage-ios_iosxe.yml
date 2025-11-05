@@ -226,18 +226,23 @@
         #ansible_ssh_common_args: '-o ServerAliveInterval=30 -o ServerAliveCountMax=120'
       register: image_validation_result
 
+    - name: Set upgrade command
+      when: not device_upgraded
+      set_fact:
+        upgrade_command: >-
+          {%- if device_mode == 'install' -%}
+            install add file {{ flash_dir }}{{ target_image }} activate commit
+          {%- elif device_mode == 'bundle' and platform_os == 'ios_xe' -%}
+            install add file {{ flash_dir }}{{ target_image }} activate commit
+          {%- elif platform_os == 'nxos' -%}
+            install all {{ flash_dir }}{{ target_image }}
+          {%- else -%}
+            archive download-sw {{ flash_dir }}{{ target_image }}
+          {%- endif -%}
+
     - name: output results
       when: not device_upgraded
       debug:
-          msg: |
-            MD5 - {{ image_validation_result.stdout_lines | replace('.', '') }}
-            To upgrade use: {{ 
-              ('install add file ' ~ flash_dir ~ target_image ~ ' activate commit') 
-              if device_mode == 'install' 
-              ('install add file ' ~ flash_dir ~ target_image ~ ' activate commit') 
-              else if device_mode == 'bundle' and  platform_os == 'ios_xe'
-              ('install all ' ~ flash_dir ~ target_image) 
-              else if platform_os == 'nxos'
-              else 
-              ('archive download-sw ' ~ flash_dir ~ target_image)
-            }}
+        msg: |
+          MD5 - {{ image_validation_result.stdout_lines | join('') | replace('.', '') }}
+          To upgrade use: {{ upgrade_command }}
