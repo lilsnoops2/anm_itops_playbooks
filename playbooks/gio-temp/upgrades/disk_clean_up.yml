@@ -1,45 +1,73 @@
 ---
-
-- name: Clean up Cisco device disk
+- name: Prompt for variables if needed
   hosts: localhost
   gather_facts: false
-
-  vars_prompt:
-    - name: target_hosts
-      prompt: |
-        Available groups:
-        {% for g in groups.keys() | sort %}
-        - {{ g }}
-        {% endfor %}
-        
-        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
-      private: no
-    
+  
   tasks:
-    - name: Store answers as facts for next play
-      set_fact:
-        target_hosts: "{{ target_hosts }}"
-      run_once: true
-      no_log: true
+    - name: Display available inventory groups
+      when: target_hosts is not defined
+      debug:
+        msg: |
+          Available groups:
+          {% for g in groups.keys() | sort %}
+          - {{ g }}
+          {% endfor %}
+          
+          You can specify host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
 
-- name: Clean up Cisco device disk
+    - name: Prompt for target hosts
+      pause:
+        prompt: "Enter target hosts (comma-separated)"
+      register: target_hosts_input
+      when: target_hosts is not defined or target_hosts == ""
+
+    - name: Set target_hosts
+      set_fact:
+        target_hosts: "{{ target_hosts_input.user_input }}"
+      when: target_hosts_input is defined and target_hosts_input.user_input is defined
+
+
+- name: Disk Clean UP Playbook
   hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
   gather_facts: false
+  connection: network_cli
 
-  vars_prompt:
-    - name: ansible_user
-      prompt: "Enter username"
-      private: no
-    - name: ansible_password
-      prompt: "Enter password" 
-      private: yes 
+  pre_tasks:
+
+    - name: Prompt for username
+      pause:
+        prompt: "Enter username"
+        echo: yes
+      register: user_input
+      when: ansible_user is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for password
+      pause:
+        prompt: "Enter password"
+        echo: no
+      register: pass_input
+      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set username from prompt
+      set_fact:
+        ansible_user: "{{ user_input.user_input }}"
+      when: user_input is defined and user_input.user_input is defined
+
+    - name: Set password from prompt
+      set_fact:
+        ansible_password: "{{ pass_input.user_input }}"
+      when: pass_input is defined and pass_input.user_input is defined
 
   roles:
     - ansible-pyats
 
   tasks:
 
-    - name: Set Vars
+    - name: Set Vars for enable
       set_fact:
         ansible_become_password: "{{ ansible_password }}"
         ansible_become: true
