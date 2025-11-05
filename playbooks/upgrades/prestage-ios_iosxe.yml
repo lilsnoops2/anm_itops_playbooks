@@ -111,6 +111,14 @@
         gather_subset:
           - all
 
+    - name: Check current files and disk space
+      tags: pre-check, install, image-check, image-copy
+      ios_command:
+        commands: 
+          - "dir {{ flash_dir }}"
+      register: filesystem_check
+      ignore_errors: yes
+
     - name: Set all device facts
       tags: pre-check, check-version, post-check, install
       set_fact:
@@ -125,6 +133,8 @@
         current_ver: "{{ ansible_net_version }}"
         ios_type: "{{ ansible_net_iostype }}"
         device_upgraded: false
+        dir_image_check: "{{ filesystem_check.stdout[0] | regex_search(target_image, multiline=True) }}"
+        free_space: "{{ (filesystem_check.stdout[0] | regex_search('\\((\\d+) bytes free\\)', '\\1'))[0] | int }}"
         
 
     # - name: Check Current files
@@ -153,20 +163,12 @@
     #   loop: "{{ flash_checks.stdout }}"
     #   when: "'bytes free' in item"
 
-    - name: Check current files and disk space
-      tags: pre-check, install, image-check, image-copy
-      ios_command:
-        commands: 
-          - "dir {{ flash_dir }}"
-      register: filesystem_check
-      ignore_errors: yes
-
-    - name: Extract image presence and free space
-      tags: pre-check, install, image-check, image-copy
-      set_fact:
-        dir_image_check: "{{ filesystem_check.stdout[0] | regex_search(target_image, multiline=True) }}"
-        free_space: "{{ (filesystem_check.stdout[0] | regex_search('\\((\\d+) bytes free\\)', '\\1'))[0] | int }}"
-      when: filesystem_check.stdout is defined and filesystem_check.stdout[0] is defined
+    # - name: Extract image presence and free space
+    #   tags: pre-check, install, image-check, image-copy
+    #   set_fact:
+    #     dir_image_check: "{{ filesystem_check.stdout[0] | regex_search(target_image, multiline=True) }}"
+    #     free_space: "{{ (filesystem_check.stdout[0] | regex_search('\\((\\d+) bytes free\\)', '\\1'))[0] | int }}"
+    #   when: filesystem_check.stdout is defined and filesystem_check.stdout[0] is defined
 
     - name: Debug all device facts
       debug:
