@@ -248,8 +248,9 @@
         - name: Checks Status
           set_fact:
             device_upgraded: true
-          debug:
-            msg: device_upgraded
+
+        - debug:
+          msg: "{{ device_upgraded }}"
 
 
     ## Check the disk space
