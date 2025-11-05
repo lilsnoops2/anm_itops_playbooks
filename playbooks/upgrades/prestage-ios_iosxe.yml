@@ -124,6 +124,7 @@
         timestamp:  "{{ lookup('pipe','date \"+%Y-%m-%d\"') }}"
         current_ver: "{{ ansible_net_version }}"
         ios_type: "{{ ansible_net_iostype }}"
+        device_upgraded: false
         
 
     # - name: Set target image size
