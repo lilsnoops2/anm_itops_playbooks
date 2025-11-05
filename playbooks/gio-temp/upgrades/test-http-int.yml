@@ -61,7 +61,24 @@
         ansible_password: "{{ pass_input.user_input }}"
       when: pass_input is defined and pass_input.user_input is defined
 
+    - name: Set Vars for enable
+      set_fact:
+        ansible_become_password: "{{ ansible_password }}"
+        ansible_become: true
+        ansible_become_method: enable
+      run_once: true
+      no_log: true
+      when: ansible_become_password is not defined
+
   tasks:
+
+    - name: Set Vars for enable if not defined
+      set_fact:
+        ansible_become_password: "{{ ansible_password }}"
+        ansible_become: true
+        ansible_become_method: enable
+      run_once: true
+      no_log: true
 
     - name: Run on IOS
       ios_command:
