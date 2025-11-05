@@ -166,15 +166,30 @@
             device_upgraded: true
 
     ## Check the disk space, fail device if not enough space
+    - name: Check multiple possible flash directories
+      ios_command:
+        commands:
+          - "dir flash: | include bytes"
+          - "dir bootflash: | include bytes"  
+          - "dir disk0: | include bytes"
+      register: flash_checks
+      ignore_errors: yes
+
+    - name: Find working filesystem
+      set_fact:
+        free_space: "{{ item | regex_search('\\((\\d+) bytes free\\)', '\\1') | first | int }}"
+      loop: "{{ flash_checks.stdout }}"
+      when: "'bytes free' in item"
+
+
     - name: Assert Enough Disk Space Available
       when: not device_upgraded
-
       tags: image-copy, install
       assert:
         success_msg: "Enough disk space is available to accommodate target image."
         fail_msg: 'Not enough disk space available for the target image!'
         that:
-          - ansible_net_filesystems_info[flash_dir]['spacefree_kb'] | int > target_image_size_kb | int
+          - free_space > target_image_size_kb
 
 
     ## Copy the image via HTTP if image is not in flash
