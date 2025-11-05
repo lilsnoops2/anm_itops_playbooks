@@ -29,6 +29,8 @@
 
 - name: Prestage Playbook
   hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  vars_files: 
+  - ./images.yml
   gather_facts: false
   connection: network_cli
 
