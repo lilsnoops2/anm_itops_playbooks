@@ -15,6 +15,7 @@ This is a collection of playbooks for ANM ITOps automation
     - [`http_server`](#http_server)
     - [`get_platform_series`](#get_platform_series)
     - [`disk_clean_up`](#disk_clean_up)
+    - [`prestage-ios_iosxe`](#prestage-ios_iosxe)
   - [Prestage](#prestage)
 
 ## Setup
@@ -170,6 +171,9 @@ This should return an output similar to the following:
 }
 ```
 
+#### Inventory Troubleshooting
+* For many issues that may come up regarding inventory, the number 1 thing to check is that the inventory.xlsl exists in the inventory folder. 
+
 ## Playbooks
 <details>
 <summary>update_snmp_acl</summary>
@@ -310,14 +314,14 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 <summary>get_platform_series</summary>
   
 ### `get_platform_series`
-This playbook shows the platform series from inventory, i.e c9000. It is used as a pre step for upgardes and helps to minimize the amount of discovery needed to prepare for downloading images.
+This playbook shows the platform series from inventory, i.e. c9000. It is used as a pre step for upgrades and helps to minimize the amount of discovery needed to prepare for downloading images.
 
 Supported OS:
 * All
 
 **Variables**
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-- `target_hosts` (required): The  groups/hosts that you'd like to know the platform series for. Example: -e 'target_hosts=switch,router' will return the platform series for all devices belongiong to groups switch or router.
+- `target_hosts` (required): The  groups/hosts that you'd like to know the platform series for. Example: -e 'target_hosts=switch,router' will return the platform series for all devices belonging to groups switch or router.
 
 **Examples**   
 Shows platform series for all hosts/groups
@@ -349,7 +353,7 @@ ok: [sw1] =>
 ```
 
 The Task named "Show platform for selected hosts/groups" will show the platform series for each device
-The task named "Show platform series for selected hosts/groups" will show the comboind platform series for the hosts/groups.
+The task named "Show platform series for selected hosts/groups" will show the combined platform series for the hosts/groups.
 
 In this example, you would then go to Cisco software download and download the image for 2960x, c9000, and asa5506. Downloading those 3 will cover all devices' software requirements.
 </details>
@@ -358,7 +362,7 @@ In this example, you would then go to Cisco software download and download the i
 <summary>disk_clean_up</summary>
   
 ### `disk_clean_up`
-This playbook will clean up the disk on a device. Used primaraily for prestaging to ensure a dveice is ready to download a new image. This should be ran prior to any upload as this script will delete an image that is not currently active.
+This playbook will clean up the disk on a device. Used primarily for prestaging to ensure a device is ready to download a new image. This should be ran prior to any upload as this script will delete an image that is not currently active.
 For devices in bundle mode, script will delete the following patterns (the script will not delete the currently running image):
           - '^crashinfo'
           - '\.log$'
@@ -381,11 +385,11 @@ Supported OS:
 
 **Variables**
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-- `target_hosts` (required): The  groups/hosts that you'd like to run the playbook on. Example: -e 'target_hosts=switch,router' will run the playbook for all devices belongiong to groups switch or router.
+- `target_hosts` (required): The  groups/hosts that you'd like to run the playbook on. Example: -e 'target_hosts=switch,router' will run the playbook for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
 - `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
 - `ansible_become_password` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
-- `confirm` (required): When running this script, a confimation is required before deleting files, if running using passed -e, this var is required for afk operation.
+- `confirm` (required): When running this script, a confirmation is required before deleting files, if running using passed -e, this var is required for afk operation.
 
 **Examples**   
 Cleans disk image for hosts in the c9200l, c2960x, or c9000 groups
@@ -394,47 +398,211 @@ ansible-playbook playbooks/upgrades/disk_clean_up.yml -e 'target_hosts=c9200l,c2
 ```
 
 Output:
+```bash
 PLAY [Disk Clean UP Playbook] *************************************************************************************************************************************************************************************
 ...
 REDACTED OUTPUT - Tasks in this section are unimportant
 ...
 TASK [Show device mode] *******************************************************************************************************************************************************************************************
-ok: [METCTSW-STK9A] =>
+ok: [sw1] =>
   msg: Device is running in install mode
-ok: [METRO-ROMA-SW] =>
+ok: [sw2] =>
   msg: Device is running in bundle mode
-ok: [REMUS] =>
+ok: [sw3] =>
   msg: Device is running in install mode
-ok: [ROMULUS] =>
+ok: [sw4] =>
   msg: Device is running in install mode
 ...
 REDACTED OUTPUT - Tasks in this section are unimportant
 ...
 TASK [Show matched files] *****************************************************************************************************************************************************************************************
-ok: [METCTSW-STK9A] =>
+ok: [sw1] =>
   msg: |-
     Found 0 matching files:
-ok: [METRO-ROMA-SW] =>
+ok: [sw2] =>
   msg: |-
     Found 0 matching files:
-ok: [REMUS] =>
+ok: [sw3] =>
   msg: |-
     Found 1 matching files:
     - smart_overall_health.log
-ok: [ROMULUS] =>
+ok: [sw4] =>
   msg: |-
     Found 1 matching files:
     - smart_overall_health.log
 
 TASK [Cleaning up unnecessary package files] **********************************************************************************************************************************************************************
-ok: [REMUS]
-ok: [ROMULUS]
-ok: [METCTSW-STK9A]
+ok: [sw1]
+ok: [sw2]
+ok: [sw3]
 
 TASK [Delete matching files] **************************************************************************************************************************************************************************************
-ok: [ROMULUS]
-ok: [REMUS]
+ok: [sw3]
+ok: [sw4]
+```
+Install remove inactive is being run on dveices in install mode under the task named "Cleaning up unnecessary package files"
 
+</details>
+-------------------------------------------------
+<details>
+<summary>prestage-ios_iosxe</summary>
+  
+### `prestage-ios_iosxe`
+This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload.
+
+Summary/Overview of tasks:
+* Server check: Ensures that the http and folder are reachable, playbook will not continue if server is not reachable.
+* Backs Up device config to /opt/ansible_local/anm_itops_playbooks/backup
+* Version Check: If a device is already running the target version, the device will be marked as complete.
+* Disk Space Check: If a device does not have enough space for new image, it will be marked as failed. Rest of tasks will be skipped
+* Check for current image in flash: Playbook will check if the software image is already on the device, if it is, it will skip upload and only verify MD5
+* Upload Image: After Tasks to Asser device does not have the image, the playbook may seem to freeze, the first batch of dveices will begin the image copy and no output or progress will be shown during this time. You are free to walk away.
+* Verify MD5: After upload (or if image is already on disk), the playbook will verify the image MD5. 
+* Output: If all tasks complete successfully, each device will show the verified output, as well as the command needed to install/update the software for later use.
+
+Supported OS:
+* IOS (bundle mode)
+* IOS XE (bundle/install mode)
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+- `target_hosts` (required): The  groups/hosts that you'd like to run the playbook on. Example: -e 'target_hosts=switch,router' will run the playbook for all devices belongiong to groups switch or router.
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_become_password` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+- `http_server` (required): The IP address of the http server i.e 10.10.10.10
+
+**Examples**   
+Starts prestage process for devices in the c9200l group, using http server 1.1.1.1
+```bash
+ansible-playbook playbooks/gio-temp/upgrades/prestage-ios_iosxe.yml -e "target_hosts=c9200l" -e "ansible_user=user" -e 'ansible_password=password' -e "http_server=1.1.1.1"
+```
+
+Output:
+```bash
+PLAY [Prompt for variables if needed] *****************************************************************************************************************************************************************************
+...
+REDEACTED
+...
+
+TASK [Debug all device facts] *************************************************************************************************************************************************************************************
+ok: [sw1] =>
+  msg: |-
+    Device Configuration Facts:
+    ========================
+    Device Mode: bundle
+    Target Image: c2960x-universalk9-tar.152-7.E13.tar
+    Target Image MD5: 56604f86ee9b096b3deb622b52062f6b
+    Target Image Size: 41574400
+    Target Image Size KB: 41574.4
+    Target Version: 15.2(7)E13
+    Flash Directory: flash:
+    Timestamp: 2025-11-06
+    Current Version: 15.2(2)E7
+    IOS Type: IOS
+    Device Upgraded: False
+    Dir Image Check:
+    Free Space: 94977024
+
+TASK [Config Backup /opt/ansible_local/anm_itops_playbooks/backup] ************************************************************************************************************************************************
+changed: [sw1]
+
+TASK [Check running image] ****************************************************************************************************************************************************************************************
+ok: [sw1] => changed=false
+  msg: METRO-ROMA-SW not running target version 15.2(7)E13, current version is 15.2(2)E7
+
+TASK [Assert Enough Disk Space Available] *************************************************************************************************************************************************************************
+ok: [sw1] => changed=false
+  msg: Enough disk space is available to accommodate target image.
+
+TASK [Assert flash: does NOT contain target image before copy] ****************************************************************************************************************************************************
+ok: [sw1] => changed=false
+  msg: 'c2960x-universalk9-tar.152-7.E13.tar NOT in flash:'
+
+TASK [Copy IOSXE image file via HTTP] *****************************************************************************************************************************************************************************
+ok: [sw1]
+
+...
+REDACTED
+...
+
+TASK [output results] *********************************************************************************************************************************************************************************************
+ok: [sw1] =>
+  msg: |-
+    MD5 - ['Done!', 'Verified (flash:c2960x-universalk9-tar152-7E13tar) = 56604f86ee9b096b3deb622b52062f6b']
+    To upgrade use: archive download-sw flash:c2960x-universalk9-tar.152-7.E13.tar
+
+```
+
+
+#### Troubleshooting
+Troubleshooting can be categorized based on which task was failed for a device. For any failed device, I would create a list of failed devices, fix the issues, then run the script again for those devices.
+* HTTP server check failure: Ensure that the http server is operational and working. If using IIS, make sure you can reach it successfully yourself by navigating to http://1.1.1.1/http, you should see the files listed on the browser if successful.
+* Disk Space Failure: Log into the device and clean up the disk space. This can be done manually or using the disk_clean_up playbook for the hosts that failed the disk space check i.e -e 'target_hosts=switch4,router1'
+* MD5 Failure: This indicates a corrupted image, best to log into dveice manually and delete the image then try again.
+* Errors during Upload: If you see errors related to IO errors during the upload task, this could indicate the device is unable to reach the server. Few things to check -
+  - Ensure device can reach the http server, i.e telnet 1.1.1.1 80. If not working, check for ACLs or FW that could be blocking
+  - The source http client interface could be set incorrectly. You can set this manually or use the http-source-int-update playbook to automatically set an http client source interface
+  - The server could have been overloaded during the operation and refused connection. If the http server has high CPU, this could cause IO errors, simply rerunning with less hosts could be successful
+* Timeout or Failed to write to SSH Channel: These errors could be caused by an unreachable dveice or if uploading takes too long. Retry at a later time using same script. If issue persists, these devices will need to be manually prestaged.
+
+</details>
+-------------------------------------------------
+<details>
+<summary>http-source-int-update</summary>
+  
+### `http-source-int-update`
+This playbook will dynamiaclly set the http client source interface based on whatever interface is using the SSH ip address. For example, if you succesfully SSH to IP address 1.1.1.1, that means more than likely that the interface that is assigned with tha IP can be used as the http client source. Running this on client dveices will not break any other functionality since the http client source is only used for copy operations, which we own.
+
+Supported OS:
+* IOS
+* IOS XE
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+- `target_hosts` (required): The  groups/hosts that you'd like to run the playbook on. Example: -e 'target_hosts=switch,router' will run the playbook for all devices belongiong to groups switch or router.
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_become_password` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+
+**Examples**   
+Updates the http client source interface to interface assigned with the IP used to succesfully log into the dveice
+```bash
+ansible-playbook playbooks/gio-temp/upgrades/test-http-int.yml -e "target_hosts=c9200l" -e "ansible_user=user" -e 'ansible_password=password'
+```
+
+Output:
+```bash
+PLAY [Prompt for variables if needed] *****************************************************************************************************************************************************************************
+...
+REDACTED
+...
+TASK [Set HTTP Source] ********************************************************************************************************************************************************************************************
+changed: [sw1]
+changed: [sw2]
+
+TASK [Verify HTTP source interface configuration (IOS)] ***********************************************************************************************************************************************************
+ok: [sw1]
+ok: [sw2]
+
+TASK [Consolidate http_config_verify results] *********************************************************************************************************************************************************************
+ok: [sw1]
+ok: [sw2]
+
+TASK [Display verification results] *******************************************************************************************************************************************************************************
+ok: [sw1] =>
+  msg: |-
+    Configuration Verification for 1.1.1.1:
+    - Interface used: Loopback0
+    - Configuration found: ip http client source-interface Loopback0
+    - Status: SUCCESS
+ok: [sw2] =>
+  msg: |-
+    Configuration Verification for 2.2.2.2:
+    - Interface used: Loopback0
+    - Configuration found: ip http client source-interface Loopback0
+    - Status: SUCCESS
+```
 </details>
 -------------------------------------------------
 
@@ -480,5 +648,6 @@ ansible-playbook playbooks/upgrades/disk_clean_up.yml  -e 'target_hosts=switch,r
 ### Image Upload:
 1. Run the prestage playbook, for example:
 ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -e 'target_hosts=switch,router' -e 'ansible_user=user' -e 'ansible_password=password' -e 'http_server=172.22.15.110'
-2. If any devices fail, review the failures and fix issues (such as cleaning disk space or fixing http clinet source interface)
+2. If any devices fail, review the failures and fix issues (such as cleaning disk space or fixing http client source interface)
 3. After fixing devices, you can run on failed devices again by running: 
+2. If any devices failed, you may need to manually clean them up
