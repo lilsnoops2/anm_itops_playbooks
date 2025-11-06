@@ -6,6 +6,7 @@ This is a collection of playbooks for ANM ITOps automation
   - [Setup](#setup)
     - [General Setup](#general-setup)
     - [Create Inventory](#create-inventory)
+    - [Splunk Inventory](#splunk-inventory)
   - [Playbooks](#playbooks)
     - [`update_snmp_acl`](#update_snmp_acl)
     - [`create_accounts`](#create_accounts)
@@ -29,6 +30,51 @@ Create one or more inventory files in the inventory folder. See `inventory/defau
 to create an inventory from MS customer assets use the Splunk dashboard: https://splunk.awscloud.anm.com/en-US/app/splunk_ms_app/ansible_inventory
 
 You can target a host or \[group\] by adding `--limit HOST_OR_GROUP` to the ansible-playbook command
+
+### Splunk Inventory
+1. Open the Splunk inventory link and log in (can be done on the VASA/PASA):
+
+    [Splunk](https://splunk.awscloud.anm.com/en-US/app/splunk_ms_app/lm_device_explorer?form.COMPANY=*&form.FIELDS=displayName&form.FIELDS=sn.sys_class_name&form.FIELDS=auto.anm_model&form.FIELDS=auto.anm_os&form.FIELDS=auto.anm.firmware&form.FIELDS=sn.u_anm_support_level&form.CLASS=cmdb_ci_ip_router&form.CLASS=cmdb_ci_ip_switch&form.CLASS=cmdb_ci_ip_firewall&form.CLASS=u_cmdb_ci_fmc&form.CLASS=u_cmdb_ci_wireless_controller&form.CLASS=u_cmdb_ci_ise_acs&form.SEARCH=*%20sn.u_anm_support_level!%3D%22Retired%22%20sn.u_anm_support_level!%3D%22Not%20Supported%22%20sn.u_anm_support_level!%3D%22Offboarded%22)
+
+
+2. Set **Company** and remove `All` from the company field.
+
+3. Verify the following fields are present:
+
+- `displayName`  
+- `sn.sys_class_name`  
+- `auto.network.address`  
+- `auto.anm_os`  
+- `auto.anm_model`  
+- `auto.anm_firmware`  
+- `sn.u_anm_support_level`  
+
+4. Verify the following classes are present:
+
+- `cmdb_ci_ip_router`  
+- `cmdb_ci_ip_switch`  
+- `cmdb_ci_ip_firewall`
+- `u_cmdb_ci_fmc`
+- `u_cmdb_ci_wireless_controller`
+- `u_cmdb_ci_ise_acs`
+
+5. Verify search/filter is present:
+
+```
+sn.u_anm_support_level!="Retired" sn.u_anm_support_level!="Not Supported" sn.u_anm_support_level!="Offboarded"
+```
+
+6. **Download XLSX**:
+
+- Click on "Download Device List"
+- This will download a file named "lm_devices.xlsx"
+- rename file to "inventory.xlsx"
+
+8. Move the file to the following Folder in Linux WSL:
+
+```
+/opt/ansible_local/anm_itops_playbooks/inventory
+```
 
 
 ## Playbooks
