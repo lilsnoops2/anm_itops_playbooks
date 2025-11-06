@@ -13,6 +13,8 @@ This is a collection of playbooks for ANM ITOps automation
     - [`configure_snmpv3`](#configure_snmpv3)
     - [`remove_snmp`](#remove_snmp)
     - [`http_server`](#http_server)
+    - [`get_platform_series`](#get_platform_series)
+    - [`disk_clean_up`](#disk_clean_up)
   - [Prestage](#prestage)
 
 ## Setup
@@ -289,7 +291,137 @@ Remove http-server config from device
 ```bash
 ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit network -u admin -k
 ```
+<details>
+<summary>get_platform_series</summary>
+  
+### `get_platform_series`
+This playbook shows the platform series from inventory, i.e c9000. It is used as a pre step for upgardes and helps to minimize the amount of discovery needed to prepare for downloading images.
 
+Supported OS:
+* All
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+- `target_hosts` (required): The  groups/hosts that you'd like to know the platform series for. Example: -e 'target_hosts=switch,router' will return the platform series for all devices belongiong to groups switch or router.
+
+**Examples**   
+Shows platform series for all hosts/groups
+```bash
+ansible-playbook playbooks/gio-temp/upgrades/get_platform_series.yml -e "target_hosts=all"
+```
+
+Output:
+```bash
+TASK [Show platform for selected hosts/groups] ********************************************************************************************************************************************************************
+ok: [switch1] =>
+  hostvars[inventory_hostname]["platform_series"]: c9000
+ok: [switch2] =>
+  hostvars[inventory_hostname]["platform_series"]: c2960x
+ok: [switch3] =>
+  hostvars[inventory_hostname]["platform_series"]: c2960x
+ok: [switch4] =>
+  hostvars[inventory_hostname]["platform_series"]: c9000
+ok: [firewall1] =>
+  hostvars[inventory_hostname]["platform_series"]: asa5506
+
+TASK [Show platform series for selected hosts/groups] *************************************************************************************************************************************************************
+ok: [sw1] =>
+  msg: |-
+    Platform series in use:
+    - asa5506
+    - c2960x
+    - c9000
+```
+
+The Task named "Show platform for selected hosts/groups" will show the platform series for each device
+The task named "Show platform series for selected hosts/groups" will show the comboind platform series for the hosts/groups.
+
+In this example, you would then go to Cisco software download and download the image for 2960x, c9000, and asa5506. Downloading those 3 will cover all devices' software requirements.
+</details>
+<details>
+<summary>disk_clean_up</summary>
+  
+### `disk_clean_up`
+This playbook will clean up the disk on a device. Used primaraily for prestaging to ensure a dveice is ready to download a new image. This should be ran prior to any upload as this script will delete an image that is not currently active.
+For devices in bundle mode, script will delete the following patterns (the script will not delete the currently running image):
+          - '^crashinfo'
+          - '\.log$'
+          - '\.old$'
+          - '\.prv$'
+          - '\.xml$'
+          - '\.bin$'
+          - '\.tar$'
+          
+For devices in install mode, script will delete the following patterns as well as run "install remove inactive":
+          - '^crashinfo'
+          - '\.log$'
+          - '\.old$'
+          - '\.prv$'
+          - '\.xml$'
+
+Supported OS:
+* IOS (bundle mode)
+* IOS XE (bundle/install mode)
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+- `target_hosts` (required): The  groups/hosts that you'd like to run the playbook on. Example: -e 'target_hosts=switch,router' will run the playbook for all devices belongiong to groups switch or router.
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_become_password` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+- `confirm` (required): When running this script, a confimation is required before deleting files, if running using passed -e, this var is required for afk operation.
+
+**Examples**   
+Cleans disk image for hosts in the c9200l, c2960x, or c9000 groups
+```bash
+ansible-playbook playbooks/upgrades/disk_clean_up.yml -e 'target_hosts=c9200l,c2960x,c9000' -e 'ansible_user=user' -e 'ansible_password=password' -e 'confirm=yes'
+```
+
+Output:
+PLAY [Disk Clean UP Playbook] *************************************************************************************************************************************************************************************
+...
+REDACTED OUTPUT - Tasks in this section are unimportant
+...
+TASK [Show device mode] *******************************************************************************************************************************************************************************************
+ok: [METCTSW-STK9A] =>
+  msg: Device is running in install mode
+ok: [METRO-ROMA-SW] =>
+  msg: Device is running in bundle mode
+ok: [REMUS] =>
+  msg: Device is running in install mode
+ok: [ROMULUS] =>
+  msg: Device is running in install mode
+...
+REDACTED OUTPUT - Tasks in this section are unimportant
+...
+TASK [Show matched files] *****************************************************************************************************************************************************************************************
+ok: [METCTSW-STK9A] =>
+  msg: |-
+    Found 0 matching files:
+ok: [METRO-ROMA-SW] =>
+  msg: |-
+    Found 0 matching files:
+ok: [REMUS] =>
+  msg: |-
+    Found 1 matching files:
+    - smart_overall_health.log
+ok: [ROMULUS] =>
+  msg: |-
+    Found 1 matching files:
+    - smart_overall_health.log
+
+TASK [Cleaning up unnecessary package files] **********************************************************************************************************************************************************************
+ok: [REMUS]
+ok: [ROMULUS]
+ok: [METCTSW-STK9A]
+
+TASK [Delete matching files] **************************************************************************************************************************************************************************************
+ok: [ROMULUS]
+ok: [REMUS]
+
+</details>
+
+-------------------------------------------------
 ## Prestage:
 ### Pre Reqs:
 1. First determine what platform series are available, this list will be used to download the images from Cisco
