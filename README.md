@@ -6,6 +6,7 @@ This is a collection of playbooks for ANM ITOps automation
   - [Setup](#setup)
     - [General Setup](#general-setup)
     - [Create Inventory](#create-inventory)
+    - [Splunk Inventory](#splunk-inventory)
   - [Playbooks](#playbooks)
     - [`update_snmp_acl`](#update_snmp_acl)
     - [`create_accounts`](#create_accounts)
@@ -30,6 +31,142 @@ to create an inventory from MS customer assets use the Splunk dashboard: https:/
 
 You can target a host or \[group\] by adding `--limit HOST_OR_GROUP` to the ansible-playbook command
 
+### Splunk Inventory
+#### Inventory Info
+Splunk Inventory will use an excel sheet downloaded from Splunk to dynamically create the inventory used by playbooks. This plug in will automatically create groups for devices based on whether it is a switch, router, etc. As well as a group based on the platform series. A devices platform series is grouped because many different types of devices are technically the same series and therefore use the same software image. For example, Catalyst 9300, 9500, 9407, 9406 are all part of the platform series c9000, meaning all of these devices will use the same software image (cat9k). While the current inventory is comprehensive, grouping of platform series is still in work in progress as we come across different device types.
+
+The Splunk inventory script is automatically used when you run a playbook from the /opt/ansible_local/anm_itops_playbooks folder (this is where ansible.cfg is located and used). However, you can directly pass in the inventory by itself if needed using:
+```
+-i '/opt/ansible_local/anm_itops_playbooks/inventory/excel_python.py'
+```
+
+To view the inventory directly, you can run:
+```
+./inventory/excel_inventory.py
+```
+
+Most playbooks that use the -e option of "target_hosts" or prompt for target hosts can use any of the groups or hosts to run the playbook. You can use a single group, multiple groups, single host, multiple hosts, combination groups/hosts. You split the differing variables with a comma (,) no space, for example:
+Single Group: switches
+Multiple Group: switches,routers,firewalls
+Single Host: switch1
+Multiple Host: switch1,switch2,router2
+Combination: switches,router1
+
+When using a group, all devices associated to that group will be targeted. 
+
+Playbooks that utilize the target hosts variable are dynamic in nature meaning you can pick and choose groups/hosts allowing you to be granular on what devices to run on.
+
+Since the script uses the inventory directly from Splunk, it is best to obtain the names of the hosts that you wish to run a playbook on directly from SNOW CMDB, since the hostnames in SNOW should match those in Splunk.
+
+By default, ansible-playbook will use all available inventory files available in inventory/ folder.
+
+#### Download Excel File
+1. Open the Splunk inventory link and log in (can be done on the VASA/PASA):
+
+    [Splunk](https://splunk.awscloud.anm.com/en-US/app/splunk_ms_app/lm_device_explorer?form.COMPANY=*&form.FIELDS=displayName&form.FIELDS=sn.sys_class_name&form.FIELDS=auto.anm_model&form.FIELDS=auto.anm_os&form.FIELDS=auto.anm.firmware&form.FIELDS=sn.u_anm_support_level&form.CLASS=cmdb_ci_ip_router&form.CLASS=cmdb_ci_ip_switch&form.CLASS=cmdb_ci_ip_firewall&form.CLASS=u_cmdb_ci_fmc&form.CLASS=u_cmdb_ci_wireless_controller&form.CLASS=u_cmdb_ci_ise_acs&form.SEARCH=*%20sn.u_anm_support_level!%3D%22Retired%22%20sn.u_anm_support_level!%3D%22Not%20Supported%22%20sn.u_anm_support_level!%3D%22Offboarded%22)
+
+
+2. Set **Company** and remove `All` from the company field.
+
+3. Verify the following fields are present:
+
+- `displayName`  
+- `sn.sys_class_name`  
+- `auto.network.address`  
+- `auto.anm_os`  
+- `auto.anm_model`  
+- `auto.anm_firmware`  
+- `sn.u_anm_support_level`  
+
+4. Verify the following classes are present:
+
+- `cmdb_ci_ip_router`  
+- `cmdb_ci_ip_switch`  
+- `cmdb_ci_ip_firewall`
+- `u_cmdb_ci_fmc`
+- `u_cmdb_ci_wireless_controller`
+- `u_cmdb_ci_ise_acs`
+
+5. Verify search/filter is present:
+
+```
+sn.u_anm_support_level!="Retired" sn.u_anm_support_level!="Not Supported" sn.u_anm_support_level!="Offboarded"
+```
+
+6. **Download XLSX**:
+
+- Click on "Download Device List"
+- This will download a file named "lm_devices.xlsx"
+- rename file to "inventory.xlsx"
+
+7. Move the file to the following Folder in Linux WSL:
+
+```
+/opt/ansible_local/anm_itops_playbooks/inventory
+```
+8. Test by running the follwoing from a WSL cmd
+```
+cd /opt/ansible_local/anm_itops_playbooks
+./inventory/excel_inventory.py
+```
+This should return an output similar to the following:
+```
+{
+    "_meta": {
+        "hostvars": {
+            "switch1": {
+                "ansible_host": "1.1.1.1",
+                "platform_series": "c9000",
+                "pid": "c9300-48p",
+                "ansible_network_os": "ios",
+                "ansible_connection": "network_cli",
+                "platform_os": "ios_xe",
+                "auto.anm.firmware": "17.6.4"
+            },
+            "switch2": {
+                "ansible_host": "2.2.2.2",
+                "platform_series": "c9000",
+                "pid": "c9410r",
+                "ansible_network_os": "ios",
+                "ansible_connection": "network_cli",
+                "platform_os": "ios_xe",
+                "auto.anm.firmware": "17.12.4"
+            "firewall1": {
+                "ansible_host": "3.3.3.3",
+                "platform_series": "asa5506",
+                "pid": "asa5506",
+                "ansible_network_os": "asa",
+                "ansible_connection": "network_cli",
+                "platform_os": "asa",
+                "auto.anm.firmware": "9.8.2"
+            }
+        }
+    },
+    "switch": {
+        "hosts": [
+            "METCTSW-STK6A",
+            "switch1",
+            "swiutch2"
+        ]
+    },
+    "c9000": {
+        "hosts": [
+            "switch1",
+            "switch2",
+        ]
+    },
+    "firewall": {
+        "hosts": [
+            "firewall1",
+        ]
+    "asa5506": {
+        "hosts": [
+            "firewall1"
+        ]
+    },
+    }
+}
+```
 
 ## Playbooks
 ### `update_snmp_acl`
