@@ -50,7 +50,7 @@
       debug:
         msg: |
           Platform series in use:
-          {% for platform in ansible_play_hosts | map('extract', hostvars, 'platform_series') | list | unique | sort %}
+          {% for platform in ansible_play_hosts | map('extract', hostvars, 'platform_series') | select ('defined') | list | unique | sort %}
           - {{ platform }}
           {% endfor %}
       run_once: true
