@@ -171,6 +171,9 @@ This should return an output similar to the following:
 ```
 
 ## Playbooks
+<details>
+<summary>update_snmp_acl</summary>
+  
 ### `update_snmp_acl`
 This playbook updates the SNMP ACL on one or more devices to allow this host's IP address.
 
@@ -194,8 +197,12 @@ Add a list of collectors
 ```bash
 ansible-playbook playbooks/update_snmp_acl.yml -i inventory.ini -u admin -k -e 'collector_ips="1.2.3.4,1.2.3.5,1.2.3.6" snmp_string=welcome1'
 ```
+</details>
 -------------------------------------------------
 
+<details>
+<summary>create_accounts</summary>
+  
 ### `create_accounts`
 This playbook creates/ updates ot deletes accounts on one or more devices.
 
@@ -221,8 +228,11 @@ Update a user's password
 ```bash
 ansible-playbook playbooks/create_accounts.yml -e 'update_password=always add_user=testuser add_password=testpassword enable_secret=SOMESECRET' --limit network -u admin -k
 ```
+</details>
 -------------------------------------------------
-
+<details>
+<summary>configure_snmpv3</summary>
+  
 ### `configure_snmpv3`
 This playbook creates a readonly group and configures a snmpv3 user
 
@@ -231,8 +241,6 @@ This playbook creates a readonly group and configures a snmpv3 user
 - `auth_password` (required): SHA encrypted password. This is NOT the plaintext password.
 - `privacy_password` (required): AES 128 encrypted privacy password. This is NOT the plaintext password.
 - `enable_secret`: Optional: enable secret if device requires it
-
-
   
 **Examples**   
 Add a user
@@ -240,9 +248,11 @@ Add a user
 ansible-playbook configure_snmpv3.yml -e 'snmpv3_user=testuser auth_password=Ab39NnC4N3acYABat7AD privacy_password=Ah7Dbh7ABCDARx7nNAjJ enable_secret=SOMESECRET' --limit network -u admin -k
 
 ```
-
+</details>
 -------------------------------------------------
-
+<details>
+<summary>remove_snmp</summary>
+  
 ### `remove_snmp`
 This playbook removes snmp community strings from the device
 
@@ -261,7 +271,10 @@ Remove snmpv2 community from a device
 ansible-playbook remove_snmp.yml -e 'snmp_string=welcome1' --limit network -u admin -k
 
 ```
+</details>
 -------------------------------------------------
+<details>
+<summary>http_server</summary>
 
 ### `http_server`
 This playbook adds an ACL to an existing http-server enabled switch. Also supports removing the http-server config
@@ -291,6 +304,8 @@ Remove http-server config from device
 ```bash
 ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit network -u admin -k
 ```
+</details>
+-------------------------------------------------
 <details>
 <summary>get_platform_series</summary>
   
@@ -338,6 +353,7 @@ The task named "Show platform series for selected hosts/groups" will show the co
 
 In this example, you would then go to Cisco software download and download the image for 2960x, c9000, and asa5506. Downloading those 3 will cover all devices' software requirements.
 </details>
+-------------------------------------------------
 <details>
 <summary>disk_clean_up</summary>
   
@@ -420,8 +436,8 @@ ok: [ROMULUS]
 ok: [REMUS]
 
 </details>
-
 -------------------------------------------------
+
 ## Prestage:
 ### Pre Reqs:
 1. First determine what platform series are available, this list will be used to download the images from Cisco
