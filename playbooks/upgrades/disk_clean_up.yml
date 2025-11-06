@@ -69,6 +69,7 @@
   tasks:
 
     - name: Set Vars for enable
+      when: ansible_become_password is not defined
       set_fact:
         ansible_become_password: "{{ ansible_password }}"
         ansible_become: true
