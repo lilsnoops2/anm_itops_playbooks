@@ -16,7 +16,8 @@ This is a collection of playbooks for ANM ITOps automation
     - [`get_platform_series`](#get_platform_series)
     - [`disk_clean_up`](#disk_clean_up)
     - [`prestage-ios_iosxe`](#prestage-ios_iosxe)
-  - [Prestage](#prestage)
+  - [Procedures](#procedures)
+    - [Upgrade Prestage](#upgrade-prestage)
 
 ## Setup
 ### General Setup
@@ -448,7 +449,7 @@ Install remove inactive is being run on dveices in install mode under the task n
 <summary>prestage-ios_iosxe</summary>
   
 ### `prestage-ios_iosxe`
-This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload.
+This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload. Playbook can be run multiple times on dveices due to safety checks. A previosly succesful device will not redownload the image for example.
 
 Summary/Overview of tasks:
 * Server check: Ensures that the http and folder are reachable, playbook will not continue if server is not reachable.
@@ -552,7 +553,7 @@ Troubleshooting can be categorized based on which task was failed for a device. 
 <summary>http-source-int-update</summary>
   
 ### `http-source-int-update`
-This playbook will dynamiaclly set the http client source interface based on whatever interface is using the SSH ip address. For example, if you succesfully SSH to IP address 1.1.1.1, that means more than likely that the interface that is assigned with tha IP can be used as the http client source. Running this on client dveices will not break any other functionality since the http client source is only used for copy operations, which we own.
+This playbook will dynamically set the http client source interface based on whatever interface is using the SSH ip address. For example, if you successfully SSH to IP address 1.1.1.1, that means more than likely that the interface that is assigned with that IP can be used as the http client source. Running this on client devices will not break any other functionality since the http client source is only used for copy operations, which we own.
 
 Supported OS:
 * IOS
@@ -563,12 +564,12 @@ If these variables are not passed in via the -e argument, they will be prompted 
 - `target_hosts` (required): The  groups/hosts that you'd like to run the playbook on. Example: -e 'target_hosts=switch,router' will run the playbook for all devices belongiong to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
 - `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
-- `ansible_become_password` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+- `ansible_become_password` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 
 **Examples**   
-Updates the http client source interface to interface assigned with the IP used to succesfully log into the dveice
+Updates the http client source interface to interface assigned with the IP used to successfully log into the device
 ```bash
-ansible-playbook playbooks/gio-temp/upgrades/test-http-int.yml -e "target_hosts=c9200l" -e "ansible_user=user" -e 'ansible_password=password'
+ansible-playbook playbooks/upgrades/http-source-int-update.yml -e "target_hosts=c9200l" -e "ansible_user=user" -e 'ansible_password=password'
 ```
 
 Output:
@@ -606,14 +607,19 @@ ok: [sw2] =>
 </details>
 -------------------------------------------------
 
-## Prestage:
-### Pre Reqs:
-1. First determine what platform series are available, this list will be used to download the images from Cisco
-2. Run the get_platform_series playbook for example:
-ansible-playbook playbooks/upgrades/get_platform_series.yml  -e 'target_hosts=switch,router' (Review section for this playbook for further options)
+## Procedures:
+<details>
+<summary>Upgrade Prestage</summary>
+  
+### Upgrade Prestage:
+**1. Determine Platform Series:** First determine what platform series are available, this list will be used to download the images from Cisco
+* Run the [`get_platform_series`](#get_platform_series) playbook for example: (Review section for this playbook for further options or more details)
+```bash
+ansible-playbook playbooks/upgrades/get_platform_series.yml  -e 'target_hosts=switch,router'
+```
+* The last task will show you a list of device platforms based on the inventory selected, for example:
 
-3. The last task will show you a list of device platforms based on the inventory selected, for example:
-
+```bash
 TASK [Show platform series for selected hosts/groups] ******************************************************************
 ok: [ABQ-CORE-01] =>
   msg: |-
@@ -623,31 +629,49 @@ ok: [ABQ-CORE-01] =>
     - c3560cx
     - c9000
     - isr4300
+```
 
-4. Go to Cisco and download software for each of these platforms, open up images.yml in Visual Studio (Linux /opt/ansible_local/anm_itops_playbooks/upgrades). If images.yml does not exist, make a copy of images-sample.yml and rename to images.yml
-While downloading the software from cisco, make sure to grab the following information and fill out the appropriate device platform in images.yml. For example:
-##2960x 2960xr
-c2960x_target_image: c2960x-universalk9-mz.152-7.E13.tar
-c2960x_md5_hash: 03a1a35666ef516b35e487c31db8e9f9
-c2960x_image_size_bytes: 26796032
-c2960x_image_code: 15.2(7)E13
-
-5. Save images.yml
-6. Once images are downloaded, move the images to the http folder on the desktop (if http folder is missing, refer to Video to set up HTTP server on jumpbox)
-
+**2. Download Software and Update images.yml:** Go to Cisco download page and download software for each of the displayed platforms.
 NOTE: Make sure that you download .tar files for any IOS device to ensure that archive download-sw can be used:
-2960 devices
-3560 devices
-3750 devices
+- 2960 devices
+- 3560 devices
+- 3750 devices
+   * Open up images.yml in Visual Studio (`/opt/ansible_local/anm_itops_playbooks/upgrades`).
+       * NOTE: If images.yml does not exist, make a copy of images-sample.yml within the same folder and rename to images.yml
+   * Make sure to grab the following information while in the download page for the software and fill out the appropriate device platform in images.yml. MD5 and Image size can be obtained by hovering over the image name.
+    - Image Name
+    - Image MD5
+    - Image Size in Bytes
+    - Image Code - The version number of the image, IOS XE is usually in this format: xx.xx.xx so 17.09.08 for example. IOS usually has a format of xx.x(x)Ex, you can see IOS code in correct format on the release notes section of the download page.
+  
+   * Example info filled in for 2960x in images.yml
 
-### Disk Clean Up:
-1. Run Disk  Clean up playbook to run through devices and clean up old images to prepare for new image, for example:
+    ```yaml
+    ##2960x 2960xr
+    c2960x_target_image: c2960x-universalk9-mz.152-7.E13.tar
+    c2960x_md5_hash: 03a1a35666ef516b35e487c31db8e9f9
+    c2960x_image_size_bytes: 26796032
+    c2960x_image_code: 15.2(7)E13
+    ```
+  * Save images.yml after all platform series info has been filled out
+  * Move the downloaded images to the http folder on the desktop (if http folder is missing, refer to HTTP server set up guide to set up HTTP server on jumpbox)
+
+ **3. Disk Clean Up (Optional):**
+ * Run [`disk_clean_up`](#disk_clean_up) playbook to run through devices and clean up old images to prepare for new image, for example:  (Review section for this playbook for further options or more details)
+```
 ansible-playbook playbooks/upgrades/disk_clean_up.yml  -e 'target_hosts=switch,router' -e 'ansible_user=user' -e 'ansible_password=password' -e 'confirm=yes' (Review section for this playbook for further options)
-2. If any devices failed, you may need to manually clean them up
+```
+ * If any devices fail, you may need to manually clean them up
 
-### Image Upload:
-1. Run the prestage playbook, for example:
+**4. Image Upload:**
+* Run the [`prestage-ios_iosxe`](#prestage-ios_iosxe) playbook, for example:  (Review section for this playbook for further options or more details)
+```
 ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -e 'target_hosts=switch,router' -e 'ansible_user=user' -e 'ansible_password=password' -e 'http_server=172.22.15.110'
-2. If any devices fail, review the failures and fix issues (such as cleaning disk space or fixing http client source interface)
-3. After fixing devices, you can run on failed devices again by running: 
-2. If any devices failed, you may need to manually clean them up
+```
+* If any devices fail, review the failures and fix issues (such as cleaning disk space or fixing http client source interface), refer to the troubleshooting section for this playbook for further tips.
+* After troubleshooting failed devices, you can run playbook again on the failed devices directly, for example:
+```
+ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -e 'target_hosts=sw1,rtr02' -e 'ansible_user=user' -e 'ansible_password=password' -e 'http_server=172.22.15.110'
+```
+* If devices continue to fail, you will need to manually prestage those devices
+* </details>
