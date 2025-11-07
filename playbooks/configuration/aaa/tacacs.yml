@@ -12,6 +12,10 @@
     tacacs_group_name: "{{ organization_prefix }}-TACACS"
     auth_method_list: "{{ organization_prefix }}-authc"
     authz_method_list: "{{ organization_prefix }}-authz"
+    ansible_become_password: "{{ enable | default(ansible_password) }}"
+    ansible_become: true
+    ansible_become_method: enable
+
 
   pre_tasks:
 
@@ -76,18 +80,13 @@
         tacacs_key: "{{ tacacs_key_prompt.user_input }}"
       when: tacacs_key is not defined
 
-  tasks:
-    ##########################################################
-    # 0. Pre Tasks
-    ##########################################################
     - name: Set Vars for enable
       set_fact:
         ansible_become_password: "{{ ansible_password }}"
-        ansible_become: true
-        ansible_become_method: enable
       run_once: true
       no_log: true
 
+  tasks:
     ##########################################################
     # 1. Gather existing TACACS configuration
     ##########################################################
