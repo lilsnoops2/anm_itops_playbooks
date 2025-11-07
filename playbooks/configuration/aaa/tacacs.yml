@@ -163,13 +163,14 @@
       register: vty_lines_output
       when: ansible_network_os in ['ios', 'iosxe']
 
-    - name: Parse VTY lines into groups
+    - name: Parse VTY lines into groups safely
       set_fact:
-        vty_ranges: "{{ vty_lines_output.stdout[0] | regex_findall('\\s+(\\d+)\\s+VTY') | map('int') | sort }}"
+        vty_ranges: >-
+          {{ (vty_lines_output.stdout[0] | default('') | regex_findall('\\s+(\\d+)\\s+VTY')) | map('int') | list }}
         vty_groups: >-
           {% set groups = [] %}
           {% set current = [] %}
-          {% for line in vty_ranges %}
+          {% for line in (vty_lines_output.stdout[0] | default('') | regex_findall('\\s+(\\d+)\\s+VTY') | map('int') | list) %}
             {% if current | length == 0 or line == (current[-1] + 1) %}
               {% set _ = current.append(line) %}
             {% else %}
@@ -182,6 +183,7 @@
           {% endif %}
           {{ groups }}
       when: ansible_network_os in ['ios', 'iosxe']
+
 
     - name: Enforce VTY line login & authorization
       ios_config:
