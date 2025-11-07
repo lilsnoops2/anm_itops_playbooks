@@ -80,6 +80,15 @@
         tacacs_key: "{{ tacacs_key_prompt.user_input }}"
       when: tacacs_key is not defined
 
+
+    - name: Ensure AAA new-model is enabled
+      ios_config:
+        lines:
+          - "aaa new-model"
+        save_when: modified
+      when: ansible_network_os in ['ios', 'iosxe']
+
+
   tasks:
     ##########################################################
     # 1. Gather existing TACACS configuration
