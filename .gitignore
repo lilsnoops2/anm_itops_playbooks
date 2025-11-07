@@ -5,7 +5,7 @@ inventory.yml
 images.yml
 jumpboxes.yml
 dnsservers.yml
-aaaservers.yml
+aaa-servers.yml
 *.xlsx
 *vault*
 *.pem
