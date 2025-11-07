@@ -109,6 +109,19 @@
     ##########################################################
     # 2. Configure named TACACS+ servers
     ##########################################################
+    - name: Remove named TACACS servers not in YAML
+      ios_config:
+        lines: >-
+          {{
+            existing_named_servers 
+            | difference(tacacs_servers | map(attribute='name') | list)
+            | map('regex_replace', '^(.*)$', 'no tacacs server \\1')
+            | list
+          }}
+      when:
+        - ansible_network_os in ['ios', 'iosxe']
+        - existing_named_servers | difference(tacacs_servers | map(attribute='name') | list) | length > 0
+
     - name: Configure named TACACS+ servers (IOS/IOS-XE)
       ios_config:
         parents: "tacacs server {{ item.name }}"
@@ -191,19 +204,6 @@
         - ansible_network_os in ['ios', 'iosxe']
         - ios_tacacs_config.stdout[0] is search('tacacs-server')
       ignore_errors: yes
-
-    - name: Remove named TACACS servers not in YAML
-      ios_config:
-        lines: >-
-          {{
-            existing_named_servers 
-            | difference(tacacs_servers | map(attribute='name') | list)
-            | map('regex_replace', '^(.*)$', 'no tacacs server \\1')
-            | list
-          }}
-      when:
-        - ansible_network_os in ['ios', 'iosxe']
-        - existing_named_servers | difference(tacacs_servers | map(attribute='name') | list) | length > 0
 
 
     ##########################################################
