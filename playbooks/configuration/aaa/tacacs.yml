@@ -131,7 +131,7 @@
             existing_tacacs_map: >-
               {{
                 (line.startswith('tacacs server') and
-                 existing_tacacs_map.update({line.split()[2]: (config_lines[config_lines.index(line)+1].split()[2] if 'address ipv4' in config_lines[config_lines.index(line)+1] else None)}) or existing_radius_map)
+                 existing_tacacs_map.update({line.split()[2]: (config_lines[config_lines.index(line)+1].split()[2] if 'address ipv4' in config_lines[config_lines.index(line)+1] else None)}) or existing_tacacs_map)
               }}
             # existing_tacacs_keys: >-
             #   {{
