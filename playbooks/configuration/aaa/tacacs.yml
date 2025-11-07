@@ -185,8 +185,8 @@
       ios_config:
         lines: >-
           {{
-            ios_tacacs_config.stdout[0] 
-            | regex_findall('tacacs-server .*|tacacs server [A-Za-z0-9.-]+')
+            ios_tacacs_config.stdout[0]
+            | regex_findall('^(tacacs-server .+|tacacs server [A-Za-z0-9.-]+)$')
             | map('regex_replace', '^(.*)$', 'no \\1')
             | list
           }}
@@ -194,7 +194,7 @@
         - ansible_network_os in ['ios', 'iosxe']
         - ios_tacacs_config.stdout[0] is search('tacacs-server|tacacs server')
       ignore_errors: yes
-
+      
     - name: Remove named TACACS servers not in YAML
       ios_config:
         lines: >-
