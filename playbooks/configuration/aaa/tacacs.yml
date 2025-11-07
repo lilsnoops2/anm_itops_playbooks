@@ -119,18 +119,20 @@
             )
           }}
 
-    - name: Determine existing servers by IP
+    - name: Build final TACACS server list safely
+      set_fact:
+        tacacs_servers_final: []
+        
+    - name: Determine final names for TACACS servers
       set_fact:
         tacacs_servers_final: >-
           {{
-            tacacs_servers | map(
-              'combine', {
-                'final_name': (
-                  existing_servers_map | dict2items | selectattr('value','equalto', item.address) | map(attribute='key') | list | first
-                ) | default(item.name)
-              }
-            ) | list
+            tacacs_servers_final + [ item | combine({'final_name': (existing_servers_map | dict2items
+                                                                  | selectattr('value','equalto', item.address)
+                                                                  | map(attribute='key') | list | first
+                                                                  | default(item.name)) }) ]
           }}
+      loop: "{{ tacacs_servers }}"
           
     - name: Create TACACS servers only if IP is not already configured
       ios_config:
