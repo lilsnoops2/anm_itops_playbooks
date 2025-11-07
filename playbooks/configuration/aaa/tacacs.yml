@@ -164,11 +164,10 @@
 
     - name: Add or update RADIUS servers (reuse existing key if present)
       ios_config:
-        parents: "radius server {{ server.server_name }}"
+        parents: "tacacs server {{ server.server_name }}"
         lines:
           - "address ipv4 {{ server.ip }}"
-          - "{{ 'key ' ~ existing_tacacs_keys[server.server_name] if server.server_name in existing_tacacs_keys else 'key ' ~ (server.key | default(radius_key)) }}"
-          - "automate-tester username radius-test idle-time 10"
+          - "{{ 'key ' ~ existing_tacacs_keys[server.server_name] if server.server_name in existing_tacacs_keys else 'key ' ~ (server.key | default(tacacs_key)) }}"
       loop: "{{ servers_with_names }}"
       loop_control:
         loop_var: server
