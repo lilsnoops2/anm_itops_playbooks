@@ -41,6 +41,15 @@
       register: org_prefix_input
       when: prompt_for_prefix
 
+    - name: Prompt for TACACS shared secret key
+      pause:
+        prompt: "Enter TACACS+ shared secret key (will not echo):"
+        echo: no
+      register: tacacs_key_prompt
+      when: tacacs_key is not defined
+      delegate_to: localhost
+      run_once: true
+
     - name: Set username from prompt
       set_fact:
         ansible_user: "{{ user_input.user_input }}"
@@ -61,6 +70,11 @@
         tacacs_group_name: "{{ organization_prefix }}-TACACS"
         auth_method_list: "{{ organization_prefix }}-authc"
         authz_method_list: "{{ organization_prefix }}-authz"
+
+    - name: Set TACACS key variable
+      set_fact:
+        tacacs_key: "{{ tacacs_key_prompt.user_input }}"
+      when: tacacs_key is not defined
 
   tasks:
     ##########################################################
