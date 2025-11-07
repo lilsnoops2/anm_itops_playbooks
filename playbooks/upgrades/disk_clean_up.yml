@@ -1,37 +1,14 @@
 #ansible-playbook playbooks/gio-temp/upgrades/disk_clean_up.yml -e 'target_hosts=c9200l' -e 'ansible_user=user' -e 'ansible_password=password' -e 'confirm=yes'
 ---
-- name: Prompt for variables if needed
-  hosts: localhost
-  gather_facts: false
-  
-  tasks:
-    - name: Display available inventory groups
-      when: target_hosts is not defined
-      debug:
-        msg: |
-          Available groups:
-          {% for g in groups.keys() | sort %}
-          - {{ g }}
-          {% endfor %}
-          
-          You can specify host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
-
-    - name: Prompt for target hosts
-      pause:
-        prompt: "Enter target hosts (comma-separated)"
-      register: target_hosts_input
-      when: target_hosts is not defined or target_hosts == ""
-
-    - name: Set target_hosts
-      set_fact:
-        target_hosts: "{{ target_hosts_input.user_input }}"
-      when: target_hosts_input is defined and target_hosts_input.user_input is defined
-
-
 - name: Disk Clean UP Playbook
-  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
+  hosts: all
   gather_facts: false
   connection: network_cli
+
+  vars:
+    ansible_become_password: "{{ enable | default(ansible_password) }}"
+    ansible_become: true
+    ansible_become_method: enable
 
   pre_tasks:
 
@@ -67,15 +44,6 @@
     - ansible-pyats
 
   tasks:
-
-    - name: Set Vars for enable
-      when: ansible_become_password is not defined
-      set_fact:
-        ansible_become_password: "{{ ansible_password }}"
-        ansible_become: true
-        ansible_become_method: enable
-      run_once: true
-      no_log: true
 
     - name: Gather facts for Devices
       ios_facts:
