@@ -120,7 +120,7 @@
     - name: Initialize RADIUS server facts
       set_fact:
         existing_tacacs_map: {}
-        #existing_tacacs_keys: {}
+        existing_tacacs_keys: {}
 
     - name: Parse TACACS servers line-by-line
       vars:
@@ -133,13 +133,13 @@
                 (line.startswith('tacacs server') and
                  existing_tacacs_map.update({line.split()[2]: (config_lines[config_lines.index(line)+1].split()[2] if 'address ipv4' in config_lines[config_lines.index(line)+1] else None)}) or existing_tacacs_map)
               }}
-            # existing_tacacs_keys: >-
-            #   {{
-            #     (line.startswith('radius server') and
-            #      (config_lines[config_lines.index(line)+2].split(None,1)[1] if 'key ' in config_lines[config_lines.index(line)+2] else None)
-            #      is not none and
-            #      existing_tacacs_keys.update({line.split()[2]: config_lines[config_lines.index(line)+2].split(None,1)[1]}) or existing_tacacs_keys)
-            #   }}
+            existing_tacacs_keys: >-
+              {{
+                (line.startswith('radius server') and
+                 (config_lines[config_lines.index(line)+2].split(None,1)[1] if 'key ' in config_lines[config_lines.index(line)+2] else None)
+                 is not none and
+                 existing_tacacs_keys.update({line.split()[2]: config_lines[config_lines.index(line)+2].split(None,1)[1]}) or existing_tacacs_keys)
+              }}
           loop: "{{ config_lines }}"
           loop_control:
             loop_var: line
