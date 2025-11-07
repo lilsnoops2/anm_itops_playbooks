@@ -80,12 +80,6 @@
         tacacs_key: "{{ tacacs_key_prompt.user_input }}"
       when: tacacs_key is not defined
 
-    - name: Set Vars for enable
-      set_fact:
-        ansible_become_password: "{{ ansible_password }}"
-      run_once: true
-      no_log: true
-
   tasks:
     ##########################################################
     # 1. Gather existing TACACS configuration
