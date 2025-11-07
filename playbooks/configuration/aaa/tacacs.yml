@@ -127,10 +127,9 @@
       set_fact:
         tacacs_servers_final: >-
           {{
-            tacacs_servers_final + [ item | combine({'final_name': (existing_servers_map | dict2items
-                                                                  | selectattr('value','equalto', item.address)
-                                                                  | map(attribute='key') | list | first
-                                                                  | default(item.name)) }) ]
+            tacacs_servers_final + [ item | combine({'final_name': (existing_servers_map[item.address] 
+                                                                    if item.address in existing_servers_map 
+                                                                    else item.name) }) ]
           }}
       loop: "{{ tacacs_servers }}"
           
