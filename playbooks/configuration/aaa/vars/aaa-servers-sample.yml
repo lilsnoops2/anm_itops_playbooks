@@ -17,6 +17,6 @@ radius_servers:
 
 tacacs_servers:
   - name: server1
-    address: 4.4.4.4
+    ip: 4.4.4.4
     key: "{{ tacacs_key }}"
     port: 49
