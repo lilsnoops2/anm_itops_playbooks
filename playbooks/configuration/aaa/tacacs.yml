@@ -163,22 +163,21 @@
       register: vty_lines_output
       when: ansible_network_os in ['ios', 'iosxe']
 
-    - name: Parse VTY lines into groups safely
+    - name: Parse VTY lines into contiguous groups
       set_fact:
-        vty_ranges: >-
-          {{ (vty_lines_output.stdout[0] | default('') | regex_findall('\\s+(\\d+)\\s+VTY')) | map('int') | list }}
         vty_groups: >-
+          {% set vtys = (vty_lines_output.stdout[0] | default('') | regex_findall('\\s+(\\d+)\\s+VTY') | map('int') | list) %}
           {% set groups = [] %}
-          {% set current = [] %}
-          {% for line in (vty_lines_output.stdout[0] | default('') | regex_findall('\\s+(\\d+)\\s+VTY') | map('int') | list) %}
-            {% if current | length == 0 or line == (current[-1] + 1) %}
-              {% set _ = current.append(line) %}
-            {% else %}
-              {% set _ = groups.append(current) %}
-              {% set current = [line] %}
-            {% endif %}
-          {% endfor %}
-          {% if current | length > 0 %}
+          {% if vtys | length > 0 %}
+            {% set current = [vtys[0]] %}
+            {% for v in vtys[1:] %}
+              {% if v == current[-1] + 1 %}
+                {% set _ = current.append(v) %}
+              {% else %}
+                {% set _ = groups.append(current) %}
+                {% set current = [v] %}
+              {% endif %}
+            {% endfor %}
             {% set _ = groups.append(current) %}
           {% endif %}
           {{ groups }}
@@ -192,11 +191,11 @@
           - "login authentication {{ auth_method_list }}"
           - "authorization exec {{ authz_method_list }}"
         match: line
-      loop: "{{ vty_groups }}"
+      loop: "{{ vty_groups | list }}"
       when:
         - ansible_network_os in ['ios', 'iosxe']
         - vty_groups | length > 0
-
+        
     ##########################################################
     # 7. Save and verify
     ##########################################################
