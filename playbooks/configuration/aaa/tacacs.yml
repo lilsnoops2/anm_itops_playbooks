@@ -159,11 +159,6 @@
         vty_groups: "{{ vty_lines_output.stdout[0] | regex_findall('line vty (\\d+)\\s+(\\d+)') | map('map', 'int') | list }}"
       when: ansible_network_os in ['ios', 'iosxe']
 
-    - name: Debug parsed VTY groups
-      debug:
-        var: vty_groups
-      when: ansible_network_os in ['ios', 'iosxe']
-
     - name: Configure VTY line login and authorization ranges
       ios_config:
         parents: "line vty {{ item.0 }} {{ item.1 }}"
@@ -194,7 +189,7 @@
         - ansible_network_os in ['ios', 'iosxe']
         - ios_tacacs_config.stdout[0] is search('tacacs-server|tacacs server')
       ignore_errors: yes
-      
+
     - name: Remove named TACACS servers not in YAML
       ios_config:
         lines: >-
