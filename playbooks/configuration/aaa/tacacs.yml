@@ -115,21 +115,27 @@
           {{
             dict(
               ios_tacacs_config.stdout[0]
-              | regex_findall('tacacs server (\S+)(?:\n\s+address ipv4 ([0-9.]+))?', multiline=True)
+              | regex_findall('^tacacs server (\S+)\s*(?:\n\s+address ipv4 ([0-9.]+))?', multiline=True)
             )
           }}
 
     - name: Build final TACACS server list safely
       set_fact:
         tacacs_servers_final: []
-        
+
     - name: Determine final names for TACACS servers
       set_fact:
         tacacs_servers_final: >-
           {{
-            tacacs_servers_final + [ item | combine({'final_name': (existing_servers_map[item.address] 
-                                                                    if item.address in existing_servers_map 
-                                                                    else item.name) }) ]
+            tacacs_servers_final + [
+              item | combine({
+                'final_name': (
+                  existing_servers_map[item.address]
+                  if item.address in existing_servers_map
+                  else item.name
+                )
+              })
+            ]
           }}
       loop: "{{ tacacs_servers }}"
           
