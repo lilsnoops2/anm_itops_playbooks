@@ -109,29 +109,62 @@
     ##########################################################
     # 2. Configure named TACACS+ servers
     ##########################################################
-    - name: Remove named TACACS servers not in YAML
-      ios_config:
-        lines: >-
+    - name: Parse existing TACACS servers (name → IP)
+      set_fact:
+        existing_servers_map: >-
           {{
-            existing_named_servers 
-            | difference(tacacs_servers | map(attribute='name') | list)
-            | map('regex_replace', '^(.*)$', 'no tacacs server \\1')
-            | list
+            dict(
+              ios_tacacs_config.stdout[0]
+              | regex_findall('tacacs server ([A-Za-z0-9.-]+).*?address ipv4 ([0-9.]+)', multiline=True)
+            )
           }}
-      when:
-        - ansible_network_os in ['ios', 'iosxe']
-        - existing_named_servers | difference(tacacs_servers | map(attribute='name') | list) | length > 0
 
-    - name: Configure named TACACS+ servers (IOS/IOS-XE)
+    - name: Determine existing servers by IP
+      set_fact:
+        tacacs_servers_final: >-
+          {{
+            tacacs_servers | map(
+              'combine', {
+                'final_name': (
+                  existing_servers_map | dict2items | selectattr('value','equalto', item.address) | map(attribute='key') | list | first
+                ) | default(item.name)
+              }
+            ) | list
+          }}
+          
+    - name: Create TACACS servers only if IP is not already configured
       ios_config:
-        parents: "tacacs server {{ item.name }}"
+        parents: "tacacs server {{ item.final_name }}"
         lines:
-          - "address ipv4 {{ item.address }}"
+          - "address ipv4 {{ item.address }} port {{ item.port | default(49) }}"
           - "key {{ item.key }}"
-        match: line
-      loop: "{{ tacacs_servers }}"
-      when: ansible_network_os in ['ios', 'iosxe']
-      no_log: true
+        match: exact
+      loop: "{{ tacacs_servers_final }}"
+      when: item.final_name not in existing_servers_map
+
+    # - name: Remove named TACACS servers not in YAML
+    #   ios_config:
+    #     lines: >-
+    #       {{
+    #         existing_named_servers 
+    #         | difference(tacacs_servers | map(attribute='name') | list)
+    #         | map('regex_replace', '^(.*)$', 'no tacacs server \\1')
+    #         | list
+    #       }}
+    #   when:
+    #     - ansible_network_os in ['ios', 'iosxe']
+    #     - existing_named_servers | difference(tacacs_servers | map(attribute='name') | list) | length > 0
+
+    # - name: Configure named TACACS+ servers (IOS/IOS-XE)
+    #   ios_config:
+    #     parents: "tacacs server {{ item.name }}"
+    #     lines:
+    #       - "address ipv4 {{ item.address }}"
+    #       - "key {{ item.key }}"
+    #     match: line
+    #   loop: "{{ tacacs_servers }}"
+    #   when: ansible_network_os in ['ios', 'iosxe']
+    #   no_log: true
 
     ##########################################################
     # 3. Configure TACACS+ server group
@@ -140,10 +173,18 @@
       ios_config:
         parents: "aaa group server tacacs+ {{ tacacs_group_name }}"
         lines:
-          - "server name {{ item.name }}"
-        match: line
-      loop: "{{ tacacs_servers }}"
-      when: ansible_network_os in ['ios', 'iosxe']
+          - "server name {{ item.final_name }}"
+      loop: "{{ tacacs_servers_final }}"
+
+
+    # - name: Configure TACACS+ server group
+    #   ios_config:
+    #     parents: "aaa group server tacacs+ {{ tacacs_group_name }}"
+    #     lines:
+    #       - "server name {{ item.name }}"
+    #     match: line
+    #   loop: "{{ tacacs_servers }}"
+    #   when: ansible_network_os in ['ios', 'iosxe']
 
     ##########################################################
     # 4. Enforce AAA baseline configuration
