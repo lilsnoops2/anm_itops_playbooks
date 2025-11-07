@@ -118,6 +118,7 @@
         match: line
       loop: "{{ tacacs_servers }}"
       when: ansible_network_os in ['ios', 'iosxe']
+      no_log: true
 
     ##########################################################
     # 3. Configure TACACS+ server group
