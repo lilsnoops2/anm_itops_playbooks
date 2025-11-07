@@ -1,3 +1,4 @@
+#ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
 ---
 - name: Standardize TACACS+ configuration with named method lists
   hosts: all
