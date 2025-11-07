@@ -156,46 +156,37 @@
     ##########################################################
     # 6. Configure VTY line authentication
     ##########################################################
-    - name: Get VTY line ranges
+    - name: Get available VTY lines
       ios_command:
         commands:
-          - "show line | include VTY"
+          - "show running-config | section line vty"
       register: vty_lines_output
       when: ansible_network_os in ['ios', 'iosxe']
 
-    - name: Parse VTY lines into contiguous groups
+    - name: Parse VTY line ranges (e.g., 0 4, 5 15, 0 31)
       set_fact:
-        vty_groups: >-
-          {% set vtys = (vty_lines_output.stdout[0] | default('') | regex_findall('\\s+(\\d+)\\s+VTY') | map('int') | list) %}
-          {% set groups = [] %}
-          {% if vtys | length > 0 %}
-            {% set current = [vtys[0]] %}
-            {% for v in vtys[1:] %}
-              {% if v == current[-1] + 1 %}
-                {% set _ = current.append(v) %}
-              {% else %}
-                {% set _ = groups.append(current) %}
-                {% set current = [v] %}
-              {% endif %}
-            {% endfor %}
-            {% set _ = groups.append(current) %}
-          {% endif %}
-          {{ groups }}
+        vty_groups: "{{ vty_lines_output.stdout[0] | regex_findall('line vty (\\d+)\\s+(\\d+)') | map('map', 'int') | list }}"
       when: ansible_network_os in ['ios', 'iosxe']
 
+    - name: Debug parsed VTY groups
+      debug:
+        var: vty_groups
+      when: ansible_network_os in ['ios', 'iosxe']
 
-    - name: Enforce VTY line login & authorization
+    - name: Configure VTY line login and authorization ranges
       ios_config:
-        parents: "line vty {{ item[0] }} {{ item[-1] }}"
+        parents: "line vty {{ item.0 }} {{ item.1 }}"
         lines:
           - "login authentication {{ auth_method_list }}"
           - "authorization exec {{ authz_method_list }}"
         match: line
-      loop: "{{ vty_groups | list }}"
+      loop: "{{ vty_groups }}"
+      loop_control:
+        label: "VTY {{ item.0 }}-{{ item.1 }}"
       when:
         - ansible_network_os in ['ios', 'iosxe']
         - vty_groups | length > 0
-        
+
     ##########################################################
     # 7. Save and verify
     ##########################################################
