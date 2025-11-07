@@ -115,7 +115,7 @@
           {{
             dict(
               ios_tacacs_config.stdout[0]
-              | regex_findall('tacacs server ([A-Za-z0-9.-]+).*?address ipv4 ([0-9.]+)', multiline=True)
+              | regex_findall('tacacs server (\S+)(?:\n\s+address ipv4 ([0-9.]+))?', multiline=True)
             )
           }}
 
