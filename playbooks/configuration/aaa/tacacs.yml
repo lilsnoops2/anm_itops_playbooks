@@ -181,13 +181,13 @@
         lines: >-
           {{
             ios_tacacs_config.stdout[0]
-            | regex_findall('^(tacacs-server .+|tacacs server [A-Za-z0-9.-]+)$')
+            | regex_findall('^tacacs-server.*')
             | map('regex_replace', '^(.*)$', 'no \\1')
             | list
           }}
       when:
         - ansible_network_os in ['ios', 'iosxe']
-        - ios_tacacs_config.stdout[0] is search('tacacs-server|tacacs server')
+        - ios_tacacs_config.stdout[0] is search('tacacs-server')
       ignore_errors: yes
 
     - name: Remove named TACACS servers not in YAML
