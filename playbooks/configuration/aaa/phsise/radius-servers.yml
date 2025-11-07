@@ -119,6 +119,7 @@
       loop_control:
         loop_var: server
 
+    - name: Configure RADIUS
       ios_config:
         parents: "{{ group }}"
         lines: "{{ servers_with_names | map(attribute='server_name') | map('regex_replace', '^(.*)$', 'server name \\1') | list }}"

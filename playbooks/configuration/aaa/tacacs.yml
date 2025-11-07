@@ -106,48 +106,72 @@
         existing_named_servers: "{{ ios_tacacs_config.stdout[0] | regex_findall('tacacs server ([A-Za-z0-9_.-]+)') }}"
       when: ansible_network_os in ['ios', 'iosxe']
 
+
+    - name: Gather current named TACACS servers
+      ios_command:
+        commands:
+          - "show running-config | section ^tacacs server"
+      register: tacacs_config
+
     ##########################################################
     # 2. Configure named TACACS+ servers
     ##########################################################
-    - name: Parse existing TACACS servers (name → IP)
-      set_fact:
-        existing_servers_map: >-
-          {{
-            dict(
-              ios_tacacs_config.stdout[0]
-              | regex_findall('^tacacs server (\S+)\s*(?:\n\s+address ipv4 ([0-9.]+))?', multiline=True)
-            )
-          }}
 
-    - name: Build final TACACS server list safely
+    - name: Initialize RADIUS server facts
       set_fact:
-        tacacs_servers_final: []
+        existing_tacacs_map: {}
+        #existing_tacacs_keys: {}
 
-    - name: Determine final names for TACACS servers
+    - name: Parse TACACS servers line-by-line
+      vars:
+        config_lines: "{{ tacacs_config.stdout[0].splitlines() }}"
+      block:
+        - name: Loop through config lines
+          set_fact:
+            existing_tacacs_map: >-
+              {{
+                (line.startswith('tacacs server') and
+                 existing_tacacs_map.update({line.split()[2]: (config_lines[config_lines.index(line)+1].split()[2] if 'address ipv4' in config_lines[config_lines.index(line)+1] else None)}) or existing_radius_map)
+              }}
+            # existing_tacacs_keys: >-
+            #   {{
+            #     (line.startswith('radius server') and
+            #      (config_lines[config_lines.index(line)+2].split(None,1)[1] if 'key ' in config_lines[config_lines.index(line)+2] else None)
+            #      is not none and
+            #      existing_tacacs_keys.update({line.split()[2]: config_lines[config_lines.index(line)+2].split(None,1)[1]}) or existing_tacacs_keys)
+            #   }}
+          loop: "{{ config_lines }}"
+          loop_control:
+            loop_var: line
+
+    - name: Build list of currently configured TACACS IPs
       set_fact:
-        tacacs_servers_final: >-
+        existing_tacacs_ips: "{{ existing_tacacs_map.values() | list }}"
+
+    - name: Build servers_with_names (loop-based)
+      set_fact:
+        servers_with_names: []
+
+    - name: Append server_name to each required server
+      set_fact:
+        servers_with_names: >-
           {{
-            tacacs_servers_final + [
-              item | combine({
-                'final_name': (
-                  existing_servers_map[item.address]
-                  if item.address in existing_servers_map
-                  else item.name
-                )
-              })
-            ]
+            servers_with_names + [server | combine({'server_name': (existing_tacacs_map | dict2items | selectattr('value','equalto', server.ip) | map(attribute='key') | list | first) | default(server.name) })]
           }}
-      loop: "{{ tacacs_servers }}"
-          
-    - name: Create TACACS servers only if IP is not already configured
+      loop: "{{ required_tacacs_servers }}"
+      loop_control:
+        loop_var: server
+
+    - name: Add or update RADIUS servers (reuse existing key if present)
       ios_config:
-        parents: "tacacs server {{ item.name }}"
+        parents: "radius server {{ server.server_name }}"
         lines:
-          - "address ipv4 {{ item.address }}"
-          - "key {{ item.key }}"
-        match: exact
-      loop: "{{ tacacs_servers_final }}"
-      when: item.final_name not in existing_servers_map
+          - "address ipv4 {{ server.ip }}"
+          - "{{ 'key ' ~ existing_tacacs_keys[server.server_name] if server.server_name in existing_tacacs_keys else 'key ' ~ (server.key | default(radius_key)) }}"
+          - "automate-tester username radius-test idle-time 10"
+      loop: "{{ servers_with_names }}"
+      loop_control:
+        loop_var: server
 
     # - name: Remove named TACACS servers not in YAML
     #   ios_config:
@@ -176,12 +200,24 @@
     ##########################################################
     # 3. Configure TACACS+ server group
     ##########################################################
+    - name: Configure TACACS
+      ios_config:
+        parents: "{{ group }}"
+        lines: 
+      loop: "{{ aaa_radius_groups }}"
+      loop_control:
+        loop_var: group
+      when: aaa_radius_groups | length > 0
+
+
     - name: Configure TACACS+ server group
       ios_config:
         parents: "aaa group server tacacs+ {{ tacacs_group_name }}"
-        lines:
-          - "server name {{ item.final_name }}"
-      loop: "{{ tacacs_servers_final }}"
+        lines: "{{ servers_with_names | map(attribute='server_name') | map('regex_replace', '^(.*)$', 'server name \\1') | list }}"
+      # loop: "{{ aaa_radius_groups }}"
+      # loop_control:
+      #   loop_var: group
+      # when: aaa_radius_groups | length > 0
 
 
     # - name: Configure TACACS+ server group
