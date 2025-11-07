@@ -158,7 +158,7 @@
           {{
             servers_with_names + [server | combine({'server_name': (existing_tacacs_map | dict2items | selectattr('value','equalto', server.ip) | map(attribute='key') | list | first) | default(server.name) })]
           }}
-      loop: "{{ required_tacacs_servers }}"
+      loop: "{{ tacacs_servers }}"
       loop_control:
         loop_var: server
 
