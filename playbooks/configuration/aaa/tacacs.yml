@@ -200,14 +200,14 @@
     ##########################################################
     # 3. Configure TACACS+ server group
     ##########################################################
-    - name: Configure TACACS
-      ios_config:
-        parents: "{{ group }}"
-        lines: 
-      loop: "{{ aaa_radius_groups }}"
-      loop_control:
-        loop_var: group
-      when: aaa_radius_groups | length > 0
+    # - name: Configure TACACS
+    #   ios_config:
+    #     parents: "{{ group }}"
+    #     lines: 
+    #   loop: "{{ aaa_radius_groups }}"
+    #   loop_control:
+    #     loop_var: group
+    #   when: aaa_radius_groups | length > 0
 
 
     - name: Configure TACACS+ server group
