@@ -1,0 +1,129 @@
+---
+- name: Get device info on new client dveices
+  hosts: all
+  gather_facts: false
+
+  pre_tasks:
+
+    - name: Prompt for username
+      pause:
+        prompt: "Enter username"
+        echo: yes
+      register: user_input
+      when: ansible_user is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for password
+      pause:
+        prompt: "Enter password"
+        echo: no
+      register: pass_input
+      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set username from prompt
+      set_fact:
+        ansible_user: "{{ user_input.user_input }}"
+      when: user_input is defined and user_input.user_input is defined
+
+    - name: Set password from prompt
+      set_fact:
+        ansible_password: "{{ pass_input.user_input }}"
+      when: pass_input is defined and pass_input.user_input is defined
+
+  tasks:
+
+  
+    - name: Set Vars for enable
+      set_fact:
+        ansible_become_password: "{{ ansible_password }}"
+        ansible_become: true
+        ansible_become_method: enable
+      run_once: true
+      no_log: true
+ 
+ 
+    - name: Attempt connection and detect device type
+      block:
+        - name: Try IOS/IOS-XE connection
+          ios_facts:
+            gather_subset: ['hardware']
+          register: ios_result
+          ignore_errors: yes
+          
+        - name: Try NXOS connection  
+          nxos_facts:
+            gather_subset: ['hardware']
+          register: nxos_result
+          ignore_errors: yes
+          when: ios_result is failed
+          
+        - name: Try IOS-XR connection
+          iosxr_facts:
+            gather_subset: ['hardware'] 
+          register: iosxr_result
+          ignore_errors: yes
+          when: ios_result is failed and nxos_result is failed
+
+        - name: Try ASA connection
+          asa_facts:
+            gather_subset: ['hardware'] 
+          register: asa_result
+          ignore_errors: yes
+          when: ios_result is failed and nxos_result is failed and iosxr_result is failed
+
+        - name: Set device type based on successful connection
+          set_fact:
+            device_type: "{{ 'ios' if ios_result is succeeded else 
+                            'nxos' if nxos_result is succeeded else 
+                            'iosxr' if iosxr_result is succeeded else 
+                            'asa' if asa_result is succeeded else 'unknown' }}"
+
+    - name: Gather comprehensive facts based on device type
+      include_tasks: "gather_{{ device_type }}_facts.yml"
+      when: device_type != 'unknown'
+
+    - name: Create discovery report
+      copy:
+        content: |
+          Device Discovery Report - {{ timestamp }}
+          =====================================
+          Hostname: {{ hostname | default('Unknown') }}
+          IP: {{ ansible_host }}
+          Type: {{ device_type | default('Unknown') }}
+          Model: {{ model | default('Unknown') }}
+          Status: {{ 'Discovered' if device_type != 'unknown' else 'Failed' }}
+          
+        dest: "./reports/{{ inventory_hostname }}_discovery.txt"
+      delegate_to: localhost
+
+        # - name: Set all device facts
+        #   when: "'ios' in {{ ansible_net_iostype }}"
+        #   set_fact:
+        #     hostname: "{{ ansible_net_hostname }}"
+        #     model: "{{ ansible_net_model  }}"
+        #     ios_type: "{{ ansible_net_iostype }}"
+        #     serial: "{{ ansible_net_serialnum }}"
+        #     stack_serials: "{{ ansible_net_stacked_serialnums  }}"
+        #     current_ver: "{{ ansible_net_version }}"
+        #     device_mode: "{{ 'install' if ansible_net_image is search('packages.conf') else 'bundle' }}"
+        #     flash_dir: "{{ ansible_net_image | split(':') | first | lower }}:"
+        #     neighbors: "{{ ansible_net_neighbors }}"
+        #     timestamp:  "{{ lookup('pipe','date \"+%Y-%m-%d\"') }}"
+
+        # - name: Debug all device facts
+        #   debug:
+        #     msg: |
+        #       Device Configuration Facts:
+        #       ========================
+        #       Device Hostname: {{ hostname }}
+        #       DXevice Model: {{ model }}
+        #       IOS Type: {{ ios_type }}
+        #       Device Serial Number: {{ serial }}
+        #       Stacked Switch Serial Numbers: {{ stack_serials }}
+        #       Current Version: {{ current_ver }}
+        #       Device Mode: {{ device_mode }}
+        #       Flash Directory: {{ flash_dir }}
+        #       Timestamp: {{ timestamp }}

@@ -1,0 +1,18 @@
+---
+- name: Gather comprehensive IOS-XR facts
+  iosxr_facts:
+    gather_subset:
+      - all
+  register: iosxr_device_facts
+
+- name: Set IOS-XR device facts
+  set_fact:
+    hostname: "{{ ansible_net_hostname }}"
+    model: "{{ ansible_net_model }}"
+    ios_type: "{{ ansible_net_platform }}"
+    serial: "{{ ansible_net_serialnum }}"
+    current_ver: "{{ ansible_net_version }}"
+    device_mode: "iosxr"
+    neighbors: "{{ ansible_net_neighbors }}"
+    interfaces: "{{ ansible_net_interfaces }}"
+    device_type: "iosxr"

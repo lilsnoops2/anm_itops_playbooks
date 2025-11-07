@@ -1,0 +1,18 @@
+---
+- name: Gather comprehensive NXOS facts
+  nxos_facts:
+    gather_subset:
+      - all
+  register: nxos_device_facts
+
+- name: Set NXOS device facts
+  set_fact:
+    hostname: "{{ ansible_net_hostname }}"
+    model: "{{ ansible_net_model }}"
+    ios_type: "{{ ansible_net_platform }}"
+    serial: "{{ ansible_net_serialnum }}"
+    current_ver: "{{ ansible_net_version }}"
+    device_mode: "nxos"
+    neighbors: "{{ ansible_net_neighbors }}"
+    interfaces: "{{ ansible_net_interfaces }}"
+    device_type: "nxos"
