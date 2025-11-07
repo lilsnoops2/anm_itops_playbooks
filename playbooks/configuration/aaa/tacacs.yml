@@ -128,7 +128,7 @@
       ios_config:
         parents: "tacacs server {{ item.name }}"
         lines:
-          - "address ipv4 {{ item.address }} port {{ item.port | default(49) }}"
+          - "address ipv4 {{ item.address }}"
           - "key {{ item.key }}"
         match: line
       loop: "{{ tacacs_servers }}"
