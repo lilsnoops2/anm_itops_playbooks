@@ -172,61 +172,12 @@
       loop_control:
         loop_var: server
 
-    # - name: Remove named TACACS servers not in YAML
-    #   ios_config:
-    #     lines: >-
-    #       {{
-    #         existing_named_servers 
-    #         | difference(tacacs_servers | map(attribute='name') | list)
-    #         | map('regex_replace', '^(.*)$', 'no tacacs server \\1')
-    #         | list
-    #       }}
-    #   when:
-    #     - ansible_network_os in ['ios', 'iosxe']
-    #     - existing_named_servers | difference(tacacs_servers | map(attribute='name') | list) | length > 0
-
-    # - name: Configure named TACACS+ servers (IOS/IOS-XE)
-    #   ios_config:
-    #     parents: "tacacs server {{ item.name }}"
-    #     lines:
-    #       - "address ipv4 {{ item.address }}"
-    #       - "key {{ item.key }}"
-    #     match: line
-    #   loop: "{{ tacacs_servers }}"
-    #   when: ansible_network_os in ['ios', 'iosxe']
-    #   no_log: true
-
-    ##########################################################
-    # 3. Configure TACACS+ server group
-    ##########################################################
-    # - name: Configure TACACS
-    #   ios_config:
-    #     parents: "{{ group }}"
-    #     lines: 
-    #   loop: "{{ aaa_radius_groups }}"
-    #   loop_control:
-    #     loop_var: group
-    #   when: aaa_radius_groups | length > 0
-
 
     - name: Configure TACACS+ server group
       ios_config:
         parents: "aaa group server tacacs+ {{ tacacs_group_name }}"
         lines: "{{ servers_with_names | map(attribute='server_name') | map('regex_replace', '^(.*)$', 'server name \\1') | list }}"
-      # loop: "{{ aaa_radius_groups }}"
-      # loop_control:
-      #   loop_var: group
-      # when: aaa_radius_groups | length > 0
 
-
-    # - name: Configure TACACS+ server group
-    #   ios_config:
-    #     parents: "aaa group server tacacs+ {{ tacacs_group_name }}"
-    #     lines:
-    #       - "server name {{ item.name }}"
-    #     match: line
-    #   loop: "{{ tacacs_servers }}"
-    #   when: ansible_network_os in ['ios', 'iosxe']
 
     ##########################################################
     # 4. Enforce AAA baseline configuration
