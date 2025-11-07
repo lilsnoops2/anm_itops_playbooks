@@ -172,20 +172,33 @@
     ##########################################################
     # 6. Remove stale or deprecated TACACS configurations
     ##########################################################
-    - name: Remove deprecated tacacs-server host commands
+    - name: Remove all deprecated tacacs-server commands
       ios_config:
-        lines: "{{ ios_tacacs_config.stdout[0] | regex_findall('tacacs-server host ([0-9.]+)') | map('regex_replace', '^(.*)$', 'no tacacs-server host \\1') | list }}"
+        lines: >-
+          {{
+            ios_tacacs_config.stdout[0] 
+            | regex_findall('tacacs-server .*|tacacs server [A-Za-z0-9.-]+')
+            | map('regex_replace', '^(.*)$', 'no \\1')
+            | list
+          }}
       when:
         - ansible_network_os in ['ios', 'iosxe']
-        - ios_tacacs_config.stdout[0] is search('tacacs-server host')
+        - ios_tacacs_config.stdout[0] is search('tacacs-server|tacacs server')
       ignore_errors: yes
 
-    - name: Remove TACACS servers not in tacacs-servers.yml
+    - name: Remove named TACACS servers not in YAML
       ios_config:
-        lines: "{{ existing_named_servers | difference(tacacs_servers | map(attribute='name') | list) | map('regex_replace', '^(.*)$', 'no tacacs server \\1') | list }}"
+        lines: >-
+          {{
+            existing_named_servers 
+            | difference(tacacs_servers | map(attribute='name') | list)
+            | map('regex_replace', '^(.*)$', 'no tacacs server \\1')
+            | list
+          }}
       when:
         - ansible_network_os in ['ios', 'iosxe']
         - existing_named_servers | difference(tacacs_servers | map(attribute='name') | list) | length > 0
+
 
     ##########################################################
     # 7. Save and verify
