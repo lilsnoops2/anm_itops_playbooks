@@ -231,9 +231,9 @@
           {{
             ios_tacacs_config.stdout[0]
             | default('')
-            | regex_findall('(?m)^[ \t]*tacacs-server.*')    # multiline, allow leading whitespace
-            | map('trim')                                   # remove any stray leading/trailing spaces
-            | reject('equalto', '')                         # drop empty entries just in case
+            | regex_findall('(?m)^[ \t]*tacacs-server.*')    
+            | map('trim')                                   
+            | reject('equalto', '')               
             | list
           }}
       when:
