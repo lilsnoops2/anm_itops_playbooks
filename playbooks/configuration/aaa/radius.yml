@@ -1,4 +1,4 @@
-#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'config_coa=yes'
+#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'config_coa=yes' -e 'deadtime=10' -e 'timeout=3' -e 'retries=3'
 ---
 - name: Standardize radius configuration with named method lists
   hosts: all
