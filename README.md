@@ -17,9 +17,11 @@ This is a collection of playbooks for ANM ITOps automation
     - [`disk_clean_up`](#disk_clean_up)
     - [`prestage-ios_iosxe`](#prestage-ios_iosxe)
     - [`tacacs`](#tacacs)
+    - [`radius`](#radius)
   - [Procedures](#procedures)
     - [Upgrade Prestage](#upgrade-prestage)
     - [Configure AAA TACACS](#configure-aaa-tacacs)
+    - [Configure AAA RADIUS](#configure-aaa-radius)
 
 ## Setup
 ### General Setup
@@ -645,7 +647,7 @@ authorization exec ANM_authz
 
 **Variables**
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update http client source interface for all devices belonging to groups switch or router.
+Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update TACACS for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
 - `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
 - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
@@ -663,6 +665,61 @@ Output:
 ```
 </details>
 -------------------------------------------------
+<details>
+<summary>radius</summary>
+
+### `radius`
+This playbook will dynamically configure TACACS on devices.
+
+**Summary/Overview of tasks:**  
+* Configures AAA new-model if not configured - required for devices that are newly being configured
+* Grabs any current RADIUS related configuration
+* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
+* Configures RADIUS group with the organization_prefix + RADIUS, example: ANM-RADIUS. Places the configured RADIUS servers in the group
+* Configures method lists with organization_prefix and the newly created TACACS group For example:
+```bash
+aaa authentication login ANM_authc_radius group ANM-RADIUS local enable
+aaa authentication enable default group ANM-RADIUS enable
+aaa authorization exec ANM_authz__radius group ANM-RADIUS local if-authenticated
+aaa accounting commands 1 default start-stop group ANM-RADIUS
+aaa accounting commands 15 default start-stop group ANM-RADIUS
+```
+* Configures the VTY lines with the authentic ation and autjorization method lists, for example:
+```
+line vty 0 15
+login authentication ANM_authc
+authorization exec ANM_authz
+```
+* Removes old and depracted tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
+* Shows output after configuring
+
+**Supported OS:**  
+* IOS
+* IOS XE
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+- `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
+- `radius_key` (required): The PSK used for the RADIUS server
+- `timeout` (optional): Timeout in seconds, defaults to 3 seconds
+- `retries` (optional): Amount of times to retry, defaults to 3
+- `deadtime` (optional): Amount of time in muntes before trying a server marked dead again, defaults to 10 minutes
+- `configure_coa` (optional): Set to 'yes' to also confogure COA for the same radius servers using the same key. Defaults to 'no'.
+
+**Examples**   
+Configures RADIUS on a single device. 
+```bash
+ansible-playbook playbooks/configuration/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
+```
+
+Output:
+```bash
+```
+</details>
 
 ## Procedures:
 <details>
@@ -759,7 +816,7 @@ tacacs_servers:
 ```
 ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
 ```
- * Be aware that this playbook is meant to be a sort of source of truth. The scrip[t will always ensure that **ONLY** the servers in the aaa-servers list are configured.
+ * Be aware that this playbook is meant to be a sort of source of truth. The script will always ensure that **ONLY** the servers in the aaa-servers list are configured.
 
 **To remove servers:**   
 * Servers can be removed by updating `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` then rerunning the playbook
@@ -767,3 +824,41 @@ ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'switch' -e 'organiza
 ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
 ```
 </details>
+-------------------------------------------------
+<details>
+<summary>Configure AAA TACACS</summary>
+  
+### Configure AAA RADIUS
+**1. Update aaa-servers.yml:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml`
+* If aaa-servers.yml is not in the folder, you can copy aaa-servers-sample.yml, and rename it to aaa-server.yml. Open the file in Visual Studio
+* Fill in the info for the TACACS servers under the `radius_servers` block. The only required information to fill out is name: and address:
+* Multple servers can be added by copying from -name and pasting under port:, for example:
+```yaml
+radius_servers:
+  - name: server1
+    address: 4.4.4.4
+    key: "{{ radius_key }}"
+    auth_port: 1812
+    acct_port: 1813
+  - name: server2
+    address: 5.5.5.5
+    key: "{{ radius_key }}"
+    auth_port: 1812
+    acct_port: 1813
+```
+* The above will be used to configure 2 servers on devices, any servers that are not in this list will be removed from the device. 
+
+**2. Run RADIUS playbook:**   
+* Run [`radius`](#radius) playbook to run through devices and configure the specified tacacs servers, for example:  (Review section for this playbook for further options or more details)
+```
+ansible-playbook playbooks/configuration/aaa/radius.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
+```
+ * Be aware that this playbook is meant to be a sort of source of truth. The script will always ensure that **ONLY** the servers in the aaa-servers list are configured.
+
+**To remove servers:**   
+* Servers can be removed by updating `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` then rerunning the playbook
+```
+ansible-playbook playbooks/configuration/aaa/radius.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
+```
+</details>
+
