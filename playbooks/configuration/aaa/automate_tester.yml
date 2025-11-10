@@ -1,0 +1,72 @@
+---
+- name: Add Automate tester to current radius serevrs
+  hosts: all
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_become_password: "{{ enable | default(ansible_password) }}"
+    ansible_become: true
+    ansible_become_method: enable
+
+  pre_tasks:
+
+    - name: Prompt for username
+      pause:
+        prompt: "Enter username"
+        echo: yes
+      register: user_input
+      when: ansible_user is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for password
+      pause:
+        prompt: "Enter password"
+        echo: no
+      register: pass_input
+      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set radius key variable
+      set_fact:
+        radius_key: "{{ radius_key_prompt.user_input }}"
+      when: radius_key is not defined
+
+    - name: Set username from prompt
+      set_fact:
+        ansible_user: "{{ user_input.user_input }}"
+      when: user_input is defined and user_input.user_input is defined
+
+    - name: Set password from prompt
+      set_fact:
+        ansible_password: "{{ pass_input.user_input }}"
+      when: pass_input is defined and pass_input.user_input is defined
+
+  tasks:
+    - name: Get current RADIUS server names
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_command:
+        commands:
+          - "show running-config | include ^radius server"
+      register: radius_output
+
+    - name: Extract RADIUS server names
+      when: ansible_network_os in ['ios', 'iosxe']
+      set_fact:
+        radius_servers: "{{ radius_output.stdout[0].splitlines() | map('regex_search', '^radius server (\\S+)', '\\1') | list }}"
+
+    - name: Add automate-tester line under each RADIUS server
+      when: ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines:
+          - "automate-tester username radius-test idle-time 10"
+        parents: "radius server {{ item }}"
+      loop: "{{ radius_servers }}"
+
+    - name: Save running configuration
+      ios_command:
+        commands:
+          - "write memory"
+      when: ansible_network_os in ['ios', 'iosxe']
