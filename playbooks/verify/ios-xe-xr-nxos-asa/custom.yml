@@ -1,0 +1,102 @@
+---
+- name: Run custom show command
+  hosts: all
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_become_password: "{{ enable | default(ansible_password) }}"
+    ansible_become: true
+    ansible_become_method: enable
+
+
+  pre_tasks:
+
+    - name: Prompt for username
+      pause:
+        prompt: "Enter username"
+        echo: yes
+      register: user_input
+      when: ansible_user is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for password
+      pause:
+        prompt: "Enter password"
+        echo: no
+      register: pass_input
+      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for show command
+      pause:
+        prompt: "Enter show command to run on devices"
+        echo: yes
+      register: command_input
+      when: command is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set username from prompt
+      set_fact:
+        ansible_user: "{{ user_input.user_input }}"
+      when: user_input is defined and user_input.user_input is defined
+
+    - name: Set password from prompt
+      set_fact:
+        ansible_password: "{{ pass_input.user_input }}"
+      when: pass_input is defined and pass_input.user_input is defined
+  
+    - name: Set command from prompt
+      set_fact:
+        command: "{{ command_input.user_input }}"
+      when: command_input is defined and command_input.user_input is defined
+      
+  tasks:
+
+    - name: Run Command
+      tags: pre-check, check-version, post-check, install
+      ios_command:
+        commands: 
+          - "{{ command }}"
+      register: command_output
+
+    - name: Store output in a variable
+      set_fact:
+        saved_output: |
+          Device: {{ inventory_hostname }}
+          {% if command_output.stdout[0] is defined %}
+          {{ command_output.stdout[0] }}
+          {% else %}
+          No output received or command failed.
+          {% endif %}
+
+    - name: Ensure output directory exists
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.file:
+        path: "outputs"
+        state: directory
+        mode: '0755'
+
+    - name: Save all outputs to a single file named after target_hosts
+      delegate_to: localhost
+      run_once: false
+      ansible.builtin.lineinfile:
+        path: "outputs/{{ command | replace('|','-') | replace(' ','-') }}_{{ now().strftime('%Y-%m-%d_%H') }}.txt"
+        create: yes
+        line: |
+          {{ saved_output }}
+
+    - name: Display command output
+      ansible.builtin.debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          {% if saved_output is defined %}
+          {{ saved_output }}
+          {% else %}
+          No output received or command failed.
+          {% endif %}
+
