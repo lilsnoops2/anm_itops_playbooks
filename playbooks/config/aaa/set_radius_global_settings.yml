@@ -54,4 +54,10 @@
           - "radius-server retransmit {{ retries }}"
           - "radius-server timeout {{ timeout }}"
           - "radius-server deadtime{{ deadtime }}"
-        match: exact
+        match: line
+
+    - name: Save running configuration
+      ios_command:
+        commands:
+          - "write memory"
+      when: ansible_network_os in ['ios', 'iosxe']

@@ -29,11 +29,6 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Set radius key variable
-      set_fact:
-        radius_key: "{{ radius_key_prompt.user_input }}"
-      when: radius_key is not defined
-
     - name: Set username from prompt
       set_fact:
         ansible_user: "{{ user_input.user_input }}"
@@ -45,12 +40,21 @@
       when: pass_input is defined and pass_input.user_input is defined
 
   tasks:
+
+    ##########################################################
+    # 1. Gather existing radius configuration
+    ##########################################################
     - name: Get current RADIUS server names
       when: ansible_network_os in ['ios', 'iosxe']
       ios_command:
         commands:
           - "show running-config | include ^radius server"
       register: radius_output
+
+
+    ##########################################################
+    # 2. Parse and Config
+    ##########################################################
 
     - name: Extract RADIUS server names
       when: ansible_network_os in ['ios', 'iosxe']
@@ -65,8 +69,28 @@
         parents: "radius server {{ item }}"
       loop: "{{ radius_servers }}"
 
+    ##########################################################
+    # 3. Save and verify
+    ##########################################################
+
     - name: Save running configuration
       ios_command:
         commands:
           - "write memory"
       when: ansible_network_os in ['ios', 'iosxe']
+
+    - name: Verify radius and AAA configuration
+      ios_command:
+        commands:
+          - "show running-config | section radius"
+      register: verify_config
+      when: ansible_network_os in ['ios', 'iosxe']
+
+    - name: Display verification summary
+      debug:
+        msg: |
+          radius Configuration Verification
+          --------------------------------
+
+          --- radius Section ---
+          {{ verify_config.stdout[0] | default('N/A') }}

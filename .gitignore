@@ -6,6 +6,7 @@ images.yml
 jumpboxes.yml
 dnsservers.yml
 aaa-servers.yml
+upgrade_commands.yml
 *.xlsx
 *vault*
 *.pem

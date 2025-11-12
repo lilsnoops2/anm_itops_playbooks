@@ -20,6 +20,7 @@
     timeout: "{{ timeout | default(3) }}"
     retries: "{{ retries | default(3) }}"
     config_coa: "{{ config_coa | default('no') }}"
+    config_tester: "{{ config_coa | default('no') }}"
 
 
   pre_tasks:
@@ -98,18 +99,6 @@
     ##########################################################
     # 1. Gather existing radius configuration
     ##########################################################
-    # - name: Get current radius configuration
-    #   ios_command:
-    #     commands:
-    #       - "show running-config | include radius"
-    #   register: ios_radius_config
-    #   when: ansible_network_os in ['ios', 'iosxe']
-
-    # - name: Extract existing radius server names
-    #   set_fact:
-    #     existing_named_servers: "{{ ios_radius_config.stdout[0] | regex_findall('radius server ([A-Za-z0-9_.-]+)') }}"
-    #   when: ansible_network_os in ['ios', 'iosxe']
-
 
     - name: Gather current named radius servers
       ios_command:
@@ -183,6 +172,22 @@
         lines: "{{ servers_with_names | map(attribute='server_name') | map('regex_replace', '^(.*)$', 'server name \\1') | list }}"
 
 
+
+    ##########################################################
+    # 3. Configure optional
+    ##########################################################
+    - name: Add automate-tester line under each RADIUS server
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+        - config_tester == 'yes'
+      ios_config:
+        lines:
+          - "automate-tester username radius-test idle-time 10"
+        parents: "radius server {{ server.server_name }}"
+      loop: "{{ servers_with_names }}"
+      loop_control:
+        loop_var: server
+
     - name: Add or update COA servers
       when: config_coa == "yes"
       ios_config:
@@ -241,43 +246,9 @@
         - ansible_network_os in ['ios', 'iosxe']
         - vty_groups | length > 0
 
-    ##########################################################
-    # 6. Remove stale or deprecated radius configurations
-    ##########################################################
-    # - name: Gather legacy radius-server lines (cleaned)
-    #   set_fact:
-    #     legacy_radius_lines: >-
-    #       {{
-    #         ios_radius_config.stdout[0]
-    #         | default('')
-    #         | regex_findall('(?m)^[ \t]*radius-server.*')    
-    #         | map('trim')                                   
-    #         | reject('equalto', '')               
-    #         | list
-    #       }}
-    #   when:
-    #     - ansible_network_os in ['ios', 'iosxe']
-
-    # - name: Debug legacy radius-server lines (will remove)
-    #   debug:
-    #     msg:
-    #       - "Found {{ legacy_radius_lines | length }} legacy radius-server line(s):"
-    #       - "{{ legacy_radius_lines }}"
-    #   when:
-    #     - ansible_network_os in ['ios', 'iosxe']
-
-    # - name: Remove legacy radius-server lines
-    #   ios_config:
-    #     lines: "{{ legacy_radius_lines | map('regex_replace','^(.*)$','no \\1') | list }}"
-    #   when:
-    #     - ansible_network_os in ['ios', 'iosxe']
-    #     - legacy_radius_lines | length > 0
-    #   register: remove_legacy_radius_result
-    #   ignore_errors: yes
-
 
     ##########################################################
-    # 7. Save and verify
+    # 6. Save and verify
     ##########################################################
     - name: Save running configuration
       ios_command:

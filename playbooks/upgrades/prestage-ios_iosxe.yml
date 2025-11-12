@@ -227,6 +227,17 @@
             archive download-sw {{ flash_dir }}{{ target_image }}
           {%- endif -%}
 
+    - name: Append host upgrade info to YAML file
+      blockinfile:
+        path: ./vars/upgrade_commands.yml
+        create: yes
+        marker: "# {mark} ANSIBLE MANAGED BLOCK for {{ inventory_hostname }}"
+        block: |
+          {{ inventory_hostname }}:
+            upgrade_command: "{{ upgrade_command }}"
+            target_ver: "{{ target_ver }}""
+            device_mode: "{{ device_mode }}"
+
     - name: output results
       when: not device_upgraded
       debug:
