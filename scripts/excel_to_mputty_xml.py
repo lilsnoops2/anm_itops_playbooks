@@ -17,7 +17,7 @@ def excel_to_mputty_xml():
 
     # === Read Excel ===
     if not os.path.exists(excel_file):
-        raise FileNotFoundError(f"❌ Excel file not found: {excel_file}")
+        raise FileNotFoundError(f" Excel file not found: {excel_file}")
 
     df = pd.read_excel(excel_file)
 
