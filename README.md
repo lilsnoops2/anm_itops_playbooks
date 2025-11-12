@@ -22,6 +22,9 @@ This is a collection of playbooks for ANM ITOps automation
     - [`coa_config`](#coa_config)
     - [`automate_tester`](#automate_tester)
     - [`set_radius_global_settings`](#set_radius_global_settings)
+  - [Scripts](#scripts)
+    - [`iis.ps1`](#iis.ps1)
+    - [`excel_to_mputty_xml.py`](#excel_to_mputty_xml.py)
   - [Procedures](#procedures)
     - [Upgrade Prestage](#upgrade-prestage)
     - [Configure AAA TACACS](#configure-aaa-tacacs)
@@ -116,7 +119,7 @@ sn.u_anm_support_level!="Retired" sn.u_anm_support_level!="Not Supported" sn.u_a
 ```
 /opt/ansible_local/anm_itops_playbooks/inventory
 ```
-8. Test by running the follwoing from a WSL cmd
+8. Test by running the following from a WSL cmd
 ```
 cd /opt/ansible_local/anm_itops_playbooks
 ./inventory/excel_inventory.py
@@ -156,9 +159,9 @@ This should return an output similar to the following:
     },
     "switch": {
         "hosts": [
-            "METCTSW-STK6A",
+            "firewall1",
             "switch1",
-            "swiutch2"
+            "switch2"
         ]
     },
     "c9000": {
@@ -181,7 +184,7 @@ This should return an output similar to the following:
 ```
 
 #### Inventory Troubleshooting
-* For many issues that may come up regarding inventory, the number 1 thing to check is that the inventory.xlsl exists in the inventory folder. 
+* For many issues that may come up regarding inventory, the number 1 thing to check is that the inventory.xlsx exists in the inventory folder. 
 
 ## Playbooks
 <details>
@@ -399,8 +402,8 @@ For devices in install mode, script will delete the following patterns as well a
 - If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 - Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will clean the disk for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 - `confirm` (required): When running this script, a confirmation is required before deleting files, if running using passed -e, this var is required for afk operation.
 
 **Examples**   
@@ -452,7 +455,7 @@ TASK [Delete matching files] ***************************************************
 ok: [sw3]
 ok: [sw4]
 ```
-Install remove inactive is being run on dveices in install mode under the task named "Cleaning up unnecessary package files"
+Install remove inactive is being run on devices in install mode under the task named "Cleaning up unnecessary package files"
 
 </details>
 -------------------------------------------------
@@ -460,7 +463,7 @@ Install remove inactive is being run on dveices in install mode under the task n
 <summary>prestage-ios_iosxe</summary>
   
 ### `prestage-ios_iosxe`
-This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload. Playbook can be run multiple times on dveices due to safety checks. A previosly succesful device will not redownload the image for example.
+This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload. Playbook can be run multiple times on devices due to safety checks. A previously successful device will not redownload the image for example.
 
 **Summary/Overview of tasks:**  
 * Server check: Ensures that the http and folder are reachable, playbook will not continue if server is not reachable.
@@ -468,7 +471,7 @@ This playbook will upload the required image via http and verify md5 of the file
 * Version Check: If a device is already running the target version, the device will be marked as complete.
 * Disk Space Check: If a device does not have enough space for new image, it will be marked as failed. Rest of tasks will be skipped
 * Check for current image in flash: Playbook will check if the software image is already on the device, if it is, it will skip upload and only verify MD5
-* Upload Image: After Tasks to Asser device does not have the image, the playbook may seem to freeze, the first batch of dveices will begin the image copy and no output or progress will be shown during this time. You are free to walk away.
+* Upload Image: After Tasks to assert device does not have the image, the playbook may seem to freeze, the first batch of devices will begin the image copy and no output or progress will be shown during this time. You are free to walk away.
 * Verify MD5: After upload (or if image is already on disk), the playbook will verify the image MD5. 
 * Output: If all tasks complete successfully, each device will show the verified output, as well as the command needed to install/update the software for later use.
 
@@ -480,8 +483,8 @@ This playbook will upload the required image via http and verify md5 of the file
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will prestage for all devices belonging to groups switch or router..
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 - `http_server` (required): The IP address of the http server i.e 10.10.10.10
 
 **Examples**   
@@ -551,12 +554,12 @@ ok: [sw1] =>
 Troubleshooting can be categorized based on which task was failed for a device. For any failed device, I would create a list of failed devices, fix the issues, then run the script again for those devices.
 * HTTP server check failure: Ensure that the http server is operational and working. If using IIS, make sure you can reach it successfully yourself by navigating to http://1.1.1.1/http, you should see the files listed on the browser if successful.
 * Disk Space Failure: Log into the device and clean up the disk space. This can be done manually or using the disk_clean_up playbook for the hosts that failed the disk space check i.e -e 'target_hosts=switch4,router1'
-* MD5 Failure: This indicates a corrupted image, best to log into dveice manually and delete the image then try again.
+* MD5 Failure: This indicates a corrupted image, best to log into device manually and delete the image then try again.
 * Errors during Upload: If you see errors related to IO errors during the upload task, this could indicate the device is unable to reach the server. Few things to check -
   - Ensure device can reach the http server, i.e telnet 1.1.1.1 80. If not working, check for ACLs or FW that could be blocking
   - The source http client interface could be set incorrectly. You can set this manually or use the http-source-int-update playbook to automatically set an http client source interface
   - The server could have been overloaded during the operation and refused connection. If the http server has high CPU, this could cause IO errors, simply rerunning with less hosts could be successful
-* Timeout or Failed to write to SSH Channel: These errors could be caused by an unreachable dveice or if uploading takes too long. Retry at a later time using same script. If issue persists, these devices will need to be manually prestaged.
+* Timeout or Failed to write to SSH Channel: These errors could be caused by an unreachable device or if uploading takes too long. Retry at a later time using same script. If issue persists, these devices will need to be manually prestaged.
 
 </details>
 -------------------------------------------------
@@ -564,13 +567,13 @@ Troubleshooting can be categorized based on which task was failed for a device. 
 <summary>upgrade-ios_iosxe</summary>
   
 ### `upgrade-ios_iosxe`
-This playbook will complete the upgrade on dveices that we're prestaged previously.
+This playbook will complete the upgrade on devices that we're prestaged previously.
 
 **Summary/Overview of tasks:**  
-* Loads the commands needed to start the upgarde from previous playbook vars
-* Writes the confog to memory
-* Runs install command for IOS-XE dveices (converts to install mode for IOS-XE devices running in bundle
-* Runs archive download-sw for bunbdle IOS devices
+* Loads the commands needed to start the upgrade from previous playbook vars
+* Writes the config to memory
+* Runs install command for IOS-XE devices (converts to install mode for IOS-XE devices running in bundle
+* Runs archive download-sw for bundle IOS devices
 * Waits for device to reboot and asserts that is running the new target version
   
 **Supported OS:**  
@@ -581,8 +584,8 @@ This playbook will complete the upgrade on dveices that we're prestaged previous
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will prestage for all devices belonging to groups switch or router..
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 
 **Examples**   
 Starts upgrade process for devices in the c9200l group.
@@ -613,7 +616,7 @@ This playbook will dynamically set the http client source interface based on wha
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update http client source interface for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
 - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 
 **Examples**   
@@ -675,13 +678,13 @@ aaa authorization exec ANM_authz group ANM-TACACS local if-authenticated
 aaa accounting commands 1 default start-stop group ANM-TACACS
 aaa accounting commands 15 default start-stop group ANM-TACACS
 ```
-* Configures the VTY lines with the authentic ation and autjorization method lists, for example:
+* Configures the VTY lines with the authentication and authorization method lists, for example:
 ```
 line vty 0 15
 login authentication ANM_authc
 authorization exec ANM_authz
 ```
-* Removes old and depracted tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
+* Removes old and deprecated tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
 * Shows output after configuring
 
 **Supported OS:**  
@@ -692,7 +695,7 @@ authorization exec ANM_authz
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update TACACS for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
 - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 - `organization_prefix` (required): Prefix that will be appended to the TACACS group and AAA method lists
 - `tacacs_key` (required): The PSK used for the TACACS server
@@ -727,13 +730,13 @@ aaa authorization exec ANM_authz__radius group ANM-RADIUS local if-authenticated
 aaa accounting commands 1 default start-stop group ANM-RADIUS
 aaa accounting commands 15 default start-stop group ANM-RADIUS
 ```
-* Configures the VTY lines with the authentic ation and autjorization method lists, for example:
+* Configures the VTY lines with the authentication and authorization method lists, for example:
 ```
 line vty 0 15
 login authentication ANM_authc
 authorization exec ANM_authz
 ```
-* Removes old and depracted tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
+* Removes old and deprecated tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
 * Shows output after configuring
 
 **Supported OS:**  
@@ -744,15 +747,15 @@ authorization exec ANM_authz
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
 - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 - `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
 - `radius_key` (required): The PSK used for the RADIUS server
 - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
 - `retries` (optional): Amount of times to retry, defaults to 3
-- `deadtime` (optional): Amount of time in muntes before trying a server marked dead again, defaults to 10 minutes
-- `config_coa` (optional): Set to 'yes' to also confogure COA for the same radius servers using the same key. Defaults to 'no'.
-- `config_tester` (optional): Set to 'yes' to also confogure automate tester for the configured radius servers. Defaults to 'no'.
+- `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+- `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
+- `config_tester` (optional): Set to 'yes' to also configure automate tester for the configured radius servers. Defaults to 'no'.
 
 **Examples**   
 Configures RADIUS on a single device. 
@@ -773,7 +776,7 @@ This playbook will add CoA config to a device based on the servers configured in
 
 **Summary/Overview of tasks:**  
 * Grabs any current RADIUS related configuration
-* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the dveices config, otherwise the provided key will be used.
+* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the devices config, otherwise the provided key will be used.
 * Shows output after configuring
 
 **Supported OS:**  
@@ -784,7 +787,7 @@ This playbook will add CoA config to a device based on the servers configured in
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
 - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 - `radius_key` (required): The PSK used for the RADIUS server
 
@@ -814,7 +817,7 @@ This playbook will add the automate-tester config to a device.
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
 - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 
 **Examples**   
@@ -845,11 +848,11 @@ This playbook will add global radius settings:
 If these variables are not passed in via the -e argument, they will be prompted for during the script execution
 Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
 - `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
 - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
 - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
 - `retries` (optional): Amount of times to retry, defaults to 3
-- `deadtime` (optional): Amount of time in muntes before trying a server marked dead again, defaults to 10 minutes
+- `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
 
 **Examples**   
 Configures global settings on a single device. 
@@ -857,6 +860,51 @@ Configures global settings on a single device.
 ansible-playbook playbooks/configuration/aaa/set_radius_global_settings.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'timeout=5' -e 'deadtime=3' -e 'retries=4'
 ```
 </details>
+
+## Scripts
+<details>
+<summary>iis.ps1</summary>
+  
+### iis.ps1
+This is a powershell script that will install an http server using iis. The script will create an http folder in teh desktop. Images can be placed on this folder and can be access using: http://1.1.1.1/http/file.bin
+
+**1. Start an elevated powershell terminal**  
+* You can use windows search to search for "Powershell" then right click and select "Run as Administrator"  
+
+**2. Run Script**   
+* You can run the script by running the following:
+```bash
+\\wsl$\Ubuntu-18.04\opt\ansible_local\anm_itops_playbooks\scripts\iis.ps1
+```
+* The script may ask you for reboot if necessary, you can type yes to proceed wth reboot or decline and reboot at a later time. 
+* The script may also ask for creds if IIS cannot access the new http folder, use the same creds used to log into the VASA/PASA.
+
+**3. Verify:**  
+* You may need reboot after running the script once and you see errors when running the script. After reboot, rerun the script again.
+* You can verify this is working by going to a web browser and typing the following: `localhost/http`. If successful, you will get a webpage listing the contents of the http folder on teh desktop
+</details>
+-------------------------------------------------
+
+<details>
+<summary>excel_to_mputty_xml.py</summary>
+  
+### excel_to_mputty_xml.py
+This is python script that can use the inventory.xlsx to create an importable mputty xml file to update mputty devices
+
+**1. Run Script:**  
+* Open WSL and navigate to `/opt/ansible_local/anm_itops_playbooks/scripts/`
+* Run the following: `./scripts/excel_to_mputty_xml.py`
+
+**2. import xml file:**   
+* The script will place the file in `/opt/ansible_local/anm_itops_playbooks/scripts/outputs/mputty_inventory.xml`
+* Use windows explorer to move the file to the Desktop
+* Open up mputty and select File > Import
+* Select the xml file obtained
+
+**3. Verify:**  
+* After successful import, verify that devices show up on mputty and that you can double-click a device to connect
+</details>
+-------------------------------------------------
 
 ## Procedures:
 <details>
@@ -934,7 +982,7 @@ ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -l 'sw1,rtr02' -e 'an
 **1. Update aaa-servers.yml:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml`
 * If aaa-servers.yml is not in the folder, you can copy aaa-servers-sample.yml, and rename it to aaa-server.yml. Open the file in Visual Studio
 * Fill in the info for the TACACS servers under the `tacacs_servers` block. The only required information to fill out is name: and address:
-* Multple servers can be added by copying from -name and pasting under port:, for example:
+* multiple servers can be added by copying from -name and pasting under port:, for example:
 ```yaml
 tacacs_servers:
   - name: server1
@@ -969,7 +1017,7 @@ ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'switch' -e 'organiza
 **1. Update aaa-servers.yml:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml`
 * If aaa-servers.yml is not in the folder, you can copy aaa-servers-sample.yml, and rename it to aaa-server.yml. Open the file in Visual Studio
 * Fill in the info for the TACACS servers under the `radius_servers` block. The only required information to fill out is name: and address:
-* Multple servers can be added by copying from -name and pasting under port:, for example:
+* multiple servers can be added by copying from -name and pasting under port:, for example:
 ```yaml
 radius_servers:
   - name: server1

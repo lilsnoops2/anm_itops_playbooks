@@ -91,7 +91,7 @@
           assert:
             quiet: no
             success_msg: "{{ inventory_hostname }} has been upgraded to {{ target_ver }}"
-            fail_msg: "Failed to upgrade the {{ inventory_hostname }}, it is still runninng {{ ansible_net_version }}"
+            fail_msg: "Failed to upgrade the {{ inventory_hostname }}, it is still running {{ ansible_net_version }}"
             that:
               - "'{{ ansible_net_version }}' == '{{ target_ver }}'"
 
@@ -156,7 +156,7 @@
           assert:
             quiet: no
             success_msg: "{{ inventory_hostname }} has been upgraded to {{ target_ver }}"
-            fail_msg: "Failed to upgrade the {{ inventory_hostname }}, it is still runninng {{ ansible_net_version }}"
+            fail_msg: "Failed to upgrade the {{ inventory_hostname }}, it is still running {{ ansible_net_version }}"
             that:
               - "'{{ ansible_net_version }}' == '{{ target_ver }}'"
 

@@ -1,5 +1,5 @@
 ---
-- name: Add Automate tester to current radius serevrs
+- name: Add Automate tester to current radius servers
   hosts: all
   gather_facts: no
   connection: network_cli
