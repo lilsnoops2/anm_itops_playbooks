@@ -16,8 +16,12 @@ This is a collection of playbooks for ANM ITOps automation
     - [`get_platform_series`](#get_platform_series)
     - [`disk_clean_up`](#disk_clean_up)
     - [`prestage-ios_iosxe`](#prestage-ios_iosxe)
+    - [`upgrade-ios_iosxe`](#upgrade-ios_iosxe)
     - [`tacacs`](#tacacs)
     - [`radius`](#radius)
+    - [`coa_config`](#coa_config)
+    - [`automate_tester`](#automate_tester)
+    - [`set_radius_global_settings`](#set_radius_global_settings)
   - [Procedures](#procedures)
     - [Upgrade Prestage](#upgrade-prestage)
     - [Configure AAA TACACS](#configure-aaa-tacacs)
@@ -557,6 +561,45 @@ Troubleshooting can be categorized based on which task was failed for a device. 
 </details>
 -------------------------------------------------
 <details>
+<summary>upgrade-ios_iosxe</summary>
+  
+### `upgrade-ios_iosxe`
+This playbook will complete the upgrade on dveices that we're prestaged previously.
+
+**Summary/Overview of tasks:**  
+* Loads the commands needed to start the upgarde from previous playbook vars
+* Writes the confog to memory
+* Runs install command for IOS-XE dveices (converts to install mode for IOS-XE devices running in bundle
+* Runs archive download-sw for bunbdle IOS devices
+* Waits for device to reboot and asserts that is running the new target version
+  
+**Supported OS:**  
+* IOS (bundle mode)
+* IOS XE (bundle/install mode)
+
+**Variables**  
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will prestage for all devices belonging to groups switch or router..
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privilages, defaults to ansible_password when not defined
+
+**Examples**   
+Starts upgrade process for devices in the c9200l group.
+```bash
+ansible-playbook playbooks/upgrades/upgrade-ios_iosxe.yml -l "c9200l" -e "ansible_user=user" -e 'ansible_password=password'
+```
+
+Output:
+```bash
+
+```
+
+#### Troubleshooting
+
+</details>
+-------------------------------------------------
+<details>
 <summary>http-source-int-update</summary>
   
 ### `http-source-int-update`
@@ -617,7 +660,7 @@ ok: [sw2] =>
 <summary>tacacs</summary>
 
 ### `tacacs`
-This playbook will dynamically configure TACACS on devices.
+This playbook will dynamically configure TACACS on devices based on the servers configured in aaa-servers.yml.
 
 **Summary/Overview of tasks:**  
 * Configures AAA new-model if not configured - required for devices that are newly being configured
@@ -669,7 +712,7 @@ Output:
 <summary>radius</summary>
 
 ### `radius`
-This playbook will dynamically configure TACACS on devices.
+This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.
 
 **Summary/Overview of tasks:**  
 * Configures AAA new-model if not configured - required for devices that are newly being configured
@@ -708,16 +751,110 @@ Remember to use -l or --limit to run playbook on specific hosts/groups: Example:
 - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
 - `retries` (optional): Amount of times to retry, defaults to 3
 - `deadtime` (optional): Amount of time in muntes before trying a server marked dead again, defaults to 10 minutes
-- `configure_coa` (optional): Set to 'yes' to also confogure COA for the same radius servers using the same key. Defaults to 'no'.
+- `config_coa` (optional): Set to 'yes' to also confogure COA for the same radius servers using the same key. Defaults to 'no'.
+- `config_tester` (optional): Set to 'yes' to also confogure automate tester for the configured radius servers. Defaults to 'no'.
 
 **Examples**   
 Configures RADIUS on a single device. 
 ```bash
-ansible-playbook playbooks/configuration/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
+ansible-playbook playbooks/configuration/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
 ```
 
 Output:
 ```bash
+```
+</details>
+-------------------------------------------------
+<details>
+<summary>coa_config</summary>
+
+### `coa_config`
+This playbook will add CoA config to a device based on the servers configured in aaa-servers.yml. This playbook should only be used when radius config is already present on devices.
+
+**Summary/Overview of tasks:**  
+* Grabs any current RADIUS related configuration
+* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the dveices config, otherwise the provided key will be used.
+* Shows output after configuring
+
+**Supported OS:**  
+* IOS
+* IOS XE
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+- `radius_key` (required): The PSK used for the RADIUS server
+
+**Examples**   
+Configures coA on a single device. 
+```bash
+ansible-playbook playbooks/configuration/aaa/coa_config.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
+```
+</details>
+-------------------------------------------------
+<details>
+<summary>automate_tester</summary>
+
+### `automate_tester`
+This playbook will add the automate-tester config to a device. 
+
+**Summary/Overview of tasks:**  
+* Grabs any current RADIUS related configuration
+* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` with automate tester - Ensure to update aaa-servers.yml before attempting to run the playbook.
+* Shows output after configuring
+
+**Supported OS:**  
+* IOS
+* IOS XE
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+**Examples**   
+Configures automate-tester on a single device. 
+```bash
+ansible-playbook playbooks/configuration/aaa/automate_tester.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password'
+```
+</details>
+-------------------------------------------------
+<details>
+<summary>set_radius_global_settings</summary>
+
+### `set_radius_global_settings`
+This playbook will add global radius settings:
+
+```
+          - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
+          - "radius-server retransmit {{ retries }}"
+          - "radius-server timeout {{ timeout }}"
+          - "radius-server deadtime{{ deadtime }}"
+```
+
+**Supported OS:**  
+* IOS
+* IOS XE
+
+**Variables**
+If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+- `ansible_user` (required): Username to log in to devices
+- `ansible_password` (required): Password to log in to devices (if a device does not log into a dveice in enable, this same password will be tried for enable mode)
+- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+- `timeout` (optional): Timeout in seconds, defaults to 3 seconds
+- `retries` (optional): Amount of times to retry, defaults to 3
+- `deadtime` (optional): Amount of time in muntes before trying a server marked dead again, defaults to 10 minutes
+
+**Examples**   
+Configures global settings on a single device. 
+```bash
+ansible-playbook playbooks/configuration/aaa/set_radius_global_settings.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'timeout=5' -e 'deadtime=3' -e 'retries=4'
 ```
 </details>
 
