@@ -3,54 +3,21 @@
 This is a collection of playbooks for ANM ITOps automation
 
 - [ANM ITOps Playbooks](#anm-itops-playbooks)
-  - [Setup](#setup)
-    - [General Setup](#general-setup)
-    - [Create Inventory](#create-inventory)
-    - [Splunk Inventory](#splunk-inventory)
-  - [Playbooks](#playbooks)
-    - [`update_snmp_acl`](#update_snmp_acl)
-    - [`create_accounts`](#create_accounts)
-    - [`configure_snmpv3`](#configure_snmpv3)
-    - [`remove_snmp`](#remove_snmp)
-    - [`http_server`](#http_server)
-    - [`upgrades`](#upgrades)
-      - [`get_platform_series`](#get_platform_series)
-      - [`disk_clean_up`](#disk_clean_up)
-      - [`prestage-ios_iosxe`](#prestage-ios_iosxe)
-      - [`upgrade-ios_iosxe`](#upgrade-ios_iosxe)
-    - [`config`](#http_server)
-      - [`aaa`](#aaa)
-        - [`tacacs`](#tacacs)
-        - [`radius`](#radius)
-        - [`coa_config`](#coa_config)
-        - [`automate_tester`](#automate_tester)
-        - [`set_radius_global_settings`](#set_radius_global_settings)
-      - [`services`](#services)
-        - [`dns`](#dns)
-        - [`igmp_snooping`](#igmp_snooping)
-        - [`ip_sla`](#ip_sla)
-        - [`logging`](#logging)
-        - [`netflow`](#netflow)
-        - [`ntp`](#ntp)
-        - [`qos`](#qos)
-      - [`snmp`](#snmp)
-        - [`v2c`](#v2c)
-        - [`v3`](#v3)
-    - [`verify`](#verify)
-        - [`custom`](#custom)
-        - [`verify_clock`](#verify_clock)
-        - [`verify_dns`](#verify_dns)
-        - [`verify_license`](#verify_license)
-        - [`verify_spanning_tree`](#verify_spanning_tree)
-        - [`verify_vlans`](#verify_vlans)
-    - [`onboarding`](#onboarding)
-  - [Scripts](#scripts)
-    - [`iis.ps1`](#iis.ps1)
-    - [`excel_to_mputty_xml.py`](#excel_to_mputty_xml.py)
-  - [Procedures](#procedures)
-    - [Upgrade Prestage](#upgrade-prestage)
-    - [Configure AAA TACACS](#configure-aaa-tacacs)
-    - [Configure AAA RADIUS](#configure-aaa-radius)
+  - [**Setup**](#setup)
+    - [**General Setup**](#general-setup)
+    - [**Create Inventory**](#create-inventory)
+    - [**Splunk Inventory**](#splunk-inventory)
+  - [**Playbooks**](#playbooks)
+    -  `update_snmp_acl`, `create_accounts`, `configure_snmpv3`, `remove_snmp`, `http_server`
+    - [**Upgrades**](#upgrades): `get_platform_series`, `disk_clean_up`, `prestage-ios_iosxe`, `upgrade-ios_iosxe`
+    - [**Config**](#config):
+      - [**AAA**](#aaa): `tacacs`, `radius`, `coa_config`, `automate_tester`, `set_radius_global_settings`
+      - [**Services:**](#services) `dns`, `igmp_snooping`, `ip_sla`, `logging`, `netflow`, `ntp`, `qos`
+      - [**SNMP:**](#snmp) `v2c`, `v3`
+    - [**Verify:**](#verify) `custom`, `verify_clock`, `verify_dns`, `verify_license`, `verify_spanning_tree`, `verify_vlans`
+    - [**Onboarding**](#onboarding)
+  - [**Scripts**](#scripts): `iis.ps1`, `excel_to_mputty_xml.py`
+  - [**Procedures**](#procedures): `Upgrade Prestage`, `Configure AAA TACACS`, `Configure AAA RADIUS`
 
 ## Setup
 ### General Setup
@@ -346,12 +313,13 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 -------------------------------------------------
 <details>
 <summary>Upgrades</summary>
+### Upgrades
 
 - 
   <details>
   <summary>get_platform_series</summary>
     
-  ### `get_platform_series`
+  #### `get_platform_series`
   This playbook shows the platform series from inventory, i.e. c9000. It is used as a pre step for upgrades and helps to minimize the amount of discovery needed to prepare for downloading images.
 
   **Supported OS:**   
@@ -403,7 +371,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>disk_clean_up</summary>
     
-  ### `disk_clean_up`
+  #### `disk_clean_up`
   This playbook will clean up the disk on a device. Used primarily for prestaging to ensure a device is ready to download a new image. This should be ran prior to any upload as this script will delete an image that is not currently active.
   For devices in bundle mode, script will delete the following patterns (the script will not delete the currently running image):
             - '^crashinfo'
@@ -491,7 +459,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>prestage-ios_iosxe</summary>
     
-  ### `prestage-ios_iosxe`
+  #### `prestage-ios_iosxe`
   This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload. Playbook can be run multiple times on devices due to safety checks. A previously successful device will not redownload the image for example.
 
   **Summary/Overview of tasks:**  
@@ -597,7 +565,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>upgrade-ios_iosxe</summary>
     
-  ### `upgrade-ios_iosxe`
+  #### `upgrade-ios_iosxe`
   This playbook will complete the upgrade on devices that we're prestaged previously.
 
   **Summary/Overview of tasks:**  
@@ -638,7 +606,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>http-source-int-update</summary>
     
-  ### `http-source-int-update`
+  #### `http-source-int-update`
   This playbook will dynamically set the http client source interface based on whatever interface is using the SSH ip address. For example, if you successfully SSH to IP address 1.1.1.1, that means more than likely that the interface that is assigned with that IP can be used as the http client source. Running this on client devices will not break any other functionality since the http client source is only used for copy operations, which we own.
 
   **Supported OS:**  
@@ -698,15 +666,19 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 <details>
 <summary>Configure</summary>
 
+## Configure
+
 - 
   <details>
   <summary>AAA</summary>
+
+  ### AAA
 
   - 
     <details>
     <summary>tacacs</summary>
 
-    ### `tacacs`
+    #### `tacacs`
     This playbook will dynamically configure TACACS on devices based on the servers configured in aaa-servers.yml.
 
     **Summary/Overview of tasks:**  
@@ -760,7 +732,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>radius</summary>
 
-    ### `radius`
+    #### `radius`
     This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.
 
     **Summary/Overview of tasks:**  
@@ -819,7 +791,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>coa_config</summary>
 
-    ### `coa_config`
+    #### `coa_config`
     This playbook will add CoA config to a device based on the servers configured in aaa-servers.yml. This playbook should only be used when radius config is already present on devices.
 
     **Summary/Overview of tasks:**  
@@ -851,7 +823,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>automate_tester</summary>
 
-    ### `automate_tester`
+    #### `automate_tester`
     This playbook will add the automate-tester config to a device. 
 
     **Summary/Overview of tasks:**  
@@ -882,7 +854,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>set_radius_global_settings</summary>
 
-    ### `set_radius_global_settings`
+    #### `set_radius_global_settings`
     This playbook will add global radius settings:
 
     ```
@@ -917,6 +889,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
     <summary>Services</summary>
 
+  ### Services
     - 
       <details>
       <summary>dns</summary>
@@ -961,10 +934,12 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
     <summary>SNMP</summary>
 
+  ### SNMP
+
     - 
       <details>
       <summary>v2c</summary>
-      ### `v2c`
+      #### `v2c`
         This playbook configures SNMP v2c with provided community string. AN ACL named "anm-ms-snmp-acl-std" is created/updated and applied to only allow snmp from the IPs specified in `./vars/jumpboxes.yml`. If jumpboxes.yml does not exist, you can copy jumpboxes-sample.yml and rename to jumpboxes.yml. You can then set the IPs for the jumpboxes like so:
 
         ```yaml
@@ -998,7 +973,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
       <details>
       <summary>v3</summary>
 
-      ### `v2c`
+      #### `v3`
         This playbook configures SNMP v3 with provided auth/priv variables. AN ACL named "anm-ms-snmp-acl-std" is created/updated and applied to only allow snmp from the IPs specified in `./vars/jumpboxes.yml`. If jumpboxes.yml does not exist, you can copy jumpboxes-sample.yml and rename to jumpboxes.yml. You can then set the IPs for the jumpboxes like so:
 
         ```yaml
@@ -1045,11 +1020,13 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 <details>
 <summary>Verify</summary>
 
+### Verify
+
 - 
   <details>
   <summary>custom</summary>
 
-  ### `custom`
+  #### `custom`
 
     Playbook allows you to run a custom show command on a ios/ios_xe devices. Output is display on CLI as well as save in `./outputs`
 
@@ -1129,7 +1106,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>verify_clock</summary>
 
-  ### `verify_clock`
+  #### `verify_clock`
 
     This playbook verifies the current date and time on devices and compares it with the VASAs/PASAs local system time. It also collects information about configured NTP servers and NTP associations to ensure proper time synchronization. Output is displayed on CLI as well as saved in `./outputs`
 
@@ -1200,7 +1177,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>verify_dns</summary>
 
-  ### `verify_dns`
+  #### `verify_dns`
 
     This playbook collects configured DNS server information. It verifies that DNS settings are correctly configured across all devices. Output is displayed on CLI as well as saved in `./outputs`
 
@@ -1277,7 +1254,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>verify_license</summary>
 
-  ### `verify_license`
+  #### `verify_license`
 
     This playbook collects license and throughput information from devices. It checks installed licenses, their status, and hardware throughput to verify device capabilities and compliance. Output is displayed on CLI as well as saved in `./outputs`
 
@@ -1367,7 +1344,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>verify_spanning_tree</summary>
 
-  ### `verify_spanning_tree`
+  #### `verify_spanning_tree`
 
     This playbook collects and verifies Spanning Tree Protocol (STP) information from IOS/IOS-XE devices. It gathers summary, VLAN-specific, and interface-level STP details to ensure proper loop prevention, correct root bridge placement, and expected port roles. Output is displayed on CLI as well as saved in `./outputs`
 
@@ -1487,9 +1464,9 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 
 - 
   <details>
-  <summary>verify_vlan</summary>
+  <summary>verify_vlans</summary>
 
-  ### `verify_vlan`
+  #### `verify_vlans`
 
     This playbook collects VLAN configuration and status information from IOS/IOS-XE devices. Playbook verifies VLAN assignments, trunk interfaces, vtp info, and overall VLAN health across multiple switches. Output is displayed on CLI as well as saved in `./outputs`
 
@@ -1597,12 +1574,14 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 <details>
 <summary>Onboarding</summary>
 
+## Onboarding
 
 </details>
 -------------------------------------------------
 
 
 ## Scripts
+
 <details>
 <summary>iis.ps1</summary>
   
