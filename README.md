@@ -311,10 +311,11 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 ```
 </details>
 -------------------------------------------------
-<details>
-<summary>Upgrades</summary>
 
 ### Upgrades
+
+<details>
+<summary>View Upgrade Playbooks</summary>
 
 - 
   <details>
@@ -665,16 +666,12 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 </details>
 -------------------------------------------------
 
-<details>
-<summary>Configure</summary>
-
-### Configure
-
-- 
-  <details>
-  <summary>AAA</summary>
+### Config
 
   #### AAA
+-
+  <details>
+  <summary>View AAA Playbooks</summary>
 
   - 
     <details>
@@ -887,11 +884,11 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     ```
     </details>
   -------------------------------------------------
+
+#### Services
 - 
   <details>
-    <summary>Services</summary>
-
-  #### Services
+    <summary>View Services playbooks</summary>
     - 
       <details>
       <summary>dns</summary>
@@ -932,11 +929,11 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
       </details>
     </details>
 
+#### SNMP
+
 - 
   <details>
-    <summary>SNMP</summary>
-
-  #### SNMP
+    <summary>View SNMP playbooks</summary>
 
     - 
       <details>
@@ -1014,16 +1011,13 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 
   </details>
 
-    </details>
 </details>
   -------------------------------------------------
 
-
+### Verify
 
 <details>
-<summary>Verify</summary>
-
-### Verify
+<summary>View Verify playbooks</summary>
 
 - 
   <details>
@@ -1573,11 +1567,11 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 </details>
 -------------------------------------------------
 
+### Onboarding
 
 <details>
-<summary>Onboarding</summary>
+<summary>View Onboarding playbooks</summary>
 
-### Onboarding
 
 </details>
 -------------------------------------------------
