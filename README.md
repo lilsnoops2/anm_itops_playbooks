@@ -13,15 +13,36 @@ This is a collection of playbooks for ANM ITOps automation
     - [`configure_snmpv3`](#configure_snmpv3)
     - [`remove_snmp`](#remove_snmp)
     - [`http_server`](#http_server)
-    - [`get_platform_series`](#get_platform_series)
-    - [`disk_clean_up`](#disk_clean_up)
-    - [`prestage-ios_iosxe`](#prestage-ios_iosxe)
-    - [`upgrade-ios_iosxe`](#upgrade-ios_iosxe)
-    - [`tacacs`](#tacacs)
-    - [`radius`](#radius)
-    - [`coa_config`](#coa_config)
-    - [`automate_tester`](#automate_tester)
-    - [`set_radius_global_settings`](#set_radius_global_settings)
+    - [`upgrades`](#upgrades)
+      - [`get_platform_series`](#get_platform_series)
+      - [`disk_clean_up`](#disk_clean_up)
+      - [`prestage-ios_iosxe`](#prestage-ios_iosxe)
+      - [`upgrade-ios_iosxe`](#upgrade-ios_iosxe)
+    - [`config`](#http_server)
+      - [`aaa`](#aaa)
+        - [`tacacs`](#tacacs)
+        - [`radius`](#radius)
+        - [`coa_config`](#coa_config)
+        - [`automate_tester`](#automate_tester)
+        - [`set_radius_global_settings`](#set_radius_global_settings)
+      - [`services`](#services)
+        - [`dns`](#dns)
+        - [`igmp_snooping`](#igmp_snooping)
+        - [`ip_sla`](#ip_sla)
+        - [`logging`](#logging)
+        - [`netflow`](#netflow)
+        - [`ntp`](#ntp)
+        - [`qos`](#qos)
+      - [`snmp`](#snmp)
+        - [`v2c`](#v2c)
+        - [`v3`](#v3)
+    - [`verify`](#verify)
+        - [`custom`](#custom)
+        - [`verify_clock`](#verify_clock)
+        - [`verify_dns`](#verify_dns)
+        - [`verify_license`](#verify_license)
+        - [`verify_spanning_tree`](#verify_spanning_tree)
+    - [`onboarding`](#onboarding)
   - [Scripts](#scripts)
     - [`iis.ps1`](#iis.ps1)
     - [`excel_to_mputty_xml.py`](#excel_to_mputty_xml.py)
@@ -323,543 +344,748 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 </details>
 -------------------------------------------------
 <details>
-<summary>get_platform_series</summary>
-  
-### `get_platform_series`
-This playbook shows the platform series from inventory, i.e. c9000. It is used as a pre step for upgrades and helps to minimize the amount of discovery needed to prepare for downloading images.
+<summary>Upgrades</summary>
 
-**Supported OS:**   
-* All
+- 
+  <details>
+  <summary>get_platform_series</summary>
+    
+  ### `get_platform_series`
+  This playbook shows the platform series from inventory, i.e. c9000. It is used as a pre step for upgrades and helps to minimize the amount of discovery needed to prepare for downloading images.
 
-**Variables**   
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will return the platform series for all devices belonging to groups switch or router.
+  **Supported OS:**   
+  * All
 
-**Examples**   
-Shows platform series for all hosts/groups
-```bash
-ansible-playbook playbooks/upgrades/get_platform_series.yml
-```
-Shows platform series for switch/router group
-```bash
-ansible-playbook playbooks/upgrades/get_platform_series.yml -l 'switch,router'
-```
+  **Variables**   
+  Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will return the platform series for all devices belonging to groups switch or router.
 
-Output:
-```bash
-TASK [Show platform for selected hosts/groups] ********************************************************************************************************************************************************************
-ok: [switch1] =>
-  hostvars[inventory_hostname]["platform_series"]: c9000
-ok: [switch2] =>
-  hostvars[inventory_hostname]["platform_series"]: c2960x
-ok: [switch3] =>
-  hostvars[inventory_hostname]["platform_series"]: c2960x
-ok: [switch4] =>
-  hostvars[inventory_hostname]["platform_series"]: c9000
-ok: [firewall1] =>
-  hostvars[inventory_hostname]["platform_series"]: asa5506
+  **Examples**   
+  Shows platform series for all hosts/groups
+  ```bash
+  ansible-playbook playbooks/upgrades/get_platform_series.yml
+  ```
+  Shows platform series for switch/router group
+  ```bash
+  ansible-playbook playbooks/upgrades/get_platform_series.yml -l 'switch,router'
+  ```
 
-TASK [Show platform series for selected hosts/groups] *************************************************************************************************************************************************************
-ok: [sw1] =>
-  msg: |-
-    Platform series in use:
-    - asa5506
-    - c2960x
-    - c9000
-```
+  Output:
+  ```bash
+  TASK [Show platform for selected hosts/groups] ********************************************************************************************************************************************************************
+  ok: [switch1] =>
+    hostvars[inventory_hostname]["platform_series"]: c9000
+  ok: [switch2] =>
+    hostvars[inventory_hostname]["platform_series"]: c2960x
+  ok: [switch3] =>
+    hostvars[inventory_hostname]["platform_series"]: c2960x
+  ok: [switch4] =>
+    hostvars[inventory_hostname]["platform_series"]: c9000
+  ok: [firewall1] =>
+    hostvars[inventory_hostname]["platform_series"]: asa5506
 
-The Task named "Show platform for selected hosts/groups" will show the platform series for each device
-The task named "Show platform series for selected hosts/groups" will show the combined platform series for the hosts/groups.
+  TASK [Show platform series for selected hosts/groups] *************************************************************************************************************************************************************
+  ok: [sw1] =>
+    msg: |-
+      Platform series in use:
+      - asa5506
+      - c2960x
+      - c9000
+  ```
 
-In this example, you would then go to Cisco software download and download the image for 2960x, c9000, and asa5506. Downloading those 3 will cover all devices' software requirements.
+  The Task named "Show platform for selected hosts/groups" will show the platform series for each device
+  The task named "Show platform series for selected hosts/groups" will show the combined platform series for the hosts/groups.
+
+  In this example, you would then go to Cisco software download and download the image for 2960x, c9000, and asa5506. Downloading those 3 will cover all devices' software requirements.
+  </details>
+-------------------------------------------------
+- 
+  <details>
+  <summary>disk_clean_up</summary>
+    
+  ### `disk_clean_up`
+  This playbook will clean up the disk on a device. Used primarily for prestaging to ensure a device is ready to download a new image. This should be ran prior to any upload as this script will delete an image that is not currently active.
+  For devices in bundle mode, script will delete the following patterns (the script will not delete the currently running image):
+            - '^crashinfo'
+            - '\.log$'
+            - '\.old$'
+            - '\.prv$'
+            - '\.xml$'
+            - '\.bin$'
+            - '\.tar$'
+            
+  For devices in install mode, script will delete the following patterns as well as run "install remove inactive":
+            - '^crashinfo'
+            - '\.log$'
+            - '\.old$'
+            - '\.prv$'
+            - '\.xml$'
+
+  **Supported OS:**   
+  * IOS (bundle mode)
+  * IOS XE (bundle/install mode)
+
+  **Variables**  
+  - If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+  - Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will clean the disk for all devices belonging to groups switch or router.
+  - `ansible_user` (required): Username to log in to devices
+  - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+  - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+  - `confirm` (required): When running this script, a confirmation is required before deleting files, if running using passed -e, this var is required for afk operation.
+
+  **Examples**   
+  Cleans disk image for hosts in the c9200l, c2960x, or c9000 groups
+  ```bash
+  ansible-playbook playbooks/upgrades/disk_clean_up.yml -l 'c9200l,c2960x,c9000' -e 'ansible_user=user' -e 'ansible_password=password' -e 'confirm=yes'
+  ```
+
+  Output:
+  ```bash
+  PLAY [Disk Clean UP Playbook] *************************************************************************************************************************************************************************************
+  ...
+  REDACTED OUTPUT - Tasks in this section are unimportant
+  ...
+  TASK [Show device mode] *******************************************************************************************************************************************************************************************
+  ok: [sw1] =>
+    msg: Device is running in install mode
+  ok: [sw2] =>
+    msg: Device is running in bundle mode
+  ok: [sw3] =>
+    msg: Device is running in install mode
+  ok: [sw4] =>
+    msg: Device is running in install mode
+  ...
+  REDACTED OUTPUT - Tasks in this section are unimportant
+  ...
+  TASK [Show matched files] *****************************************************************************************************************************************************************************************
+  ok: [sw1] =>
+    msg: |-
+      Found 0 matching files:
+  ok: [sw2] =>
+    msg: |-
+      Found 0 matching files:
+  ok: [sw3] =>
+    msg: |-
+      Found 1 matching files:
+      - smart_overall_health.log
+  ok: [sw4] =>
+    msg: |-
+      Found 1 matching files:
+      - smart_overall_health.log
+
+  TASK [Cleaning up unnecessary package files] **********************************************************************************************************************************************************************
+  ok: [sw1]
+  ok: [sw2]
+  ok: [sw3]
+
+  TASK [Delete matching files] **************************************************************************************************************************************************************************************
+  ok: [sw3]
+  ok: [sw4]
+  ```
+  Install remove inactive is being run on devices in install mode under the task named "Cleaning up unnecessary package files"
+
+  </details>
+-------------------------------------------------
+
+- 
+  <details>
+  <summary>prestage-ios_iosxe</summary>
+    
+  ### `prestage-ios_iosxe`
+  This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload. Playbook can be run multiple times on devices due to safety checks. A previously successful device will not redownload the image for example.
+
+  **Summary/Overview of tasks:**  
+  * Server check: Ensures that the http and folder are reachable, playbook will not continue if server is not reachable.
+  * Backs Up device config to /opt/ansible_local/anm_itops_playbooks/backup
+  * Version Check: If a device is already running the target version, the device will be marked as complete.
+  * Disk Space Check: If a device does not have enough space for new image, it will be marked as failed. Rest of tasks will be skipped
+  * Check for current image in flash: Playbook will check if the software image is already on the device, if it is, it will skip upload and only verify MD5
+  * Upload Image: After Tasks to assert device does not have the image, the playbook may seem to freeze, the first batch of devices will begin the image copy and no output or progress will be shown during this time. You are free to walk away.
+  * Verify MD5: After upload (or if image is already on disk), the playbook will verify the image MD5. 
+  * Output: If all tasks complete successfully, each device will show the verified output, as well as the command needed to install/update the software for later use.
+
+  **Supported OS:**  
+  * IOS (bundle mode)
+  * IOS XE (bundle/install mode)
+
+  **Variables**  
+  If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+  Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will prestage for all devices belonging to groups switch or router..
+  - `ansible_user` (required): Username to log in to devices
+  - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+  - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+  - `http_server` (required): The IP address of the http server i.e 10.10.10.10
+
+  **Examples**   
+  Starts prestage process for devices in the c9200l group, using http server 1.1.1.1
+  ```bash
+  ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -l "c9200l" -e "ansible_user=user" -e 'ansible_password=password' -e "http_server=1.1.1.1"
+  ```
+
+  Output:
+  ```bash
+  PLAY [Prompt for variables if needed] *****************************************************************************************************************************************************************************
+  ...
+  REDEACTED
+  ...
+
+  TASK [Debug all device facts] *************************************************************************************************************************************************************************************
+  ok: [sw1] =>
+    msg: |-
+      Device Configuration Facts:
+      ========================
+      Device Mode: bundle
+      Target Image: c2960x-universalk9-tar.152-7.E13.tar
+      Target Image MD5: 56604f86ee9b096b3deb622b52062f6b
+      Target Image Size: 41574400
+      Target Image Size KB: 41574.4
+      Target Version: 15.2(7)E13
+      Flash Directory: flash:
+      Timestamp: 2025-11-06
+      Current Version: 15.2(2)E7
+      IOS Type: IOS
+      Device Upgraded: False
+      Dir Image Check:
+      Free Space: 94977024
+
+  TASK [Config Backup /opt/ansible_local/anm_itops_playbooks/backup] ************************************************************************************************************************************************
+  changed: [sw1]
+
+  TASK [Check running image] ****************************************************************************************************************************************************************************************
+  ok: [sw1] => changed=false
+    msg: METRO-ROMA-SW not running target version 15.2(7)E13, current version is 15.2(2)E7
+
+  TASK [Assert Enough Disk Space Available] *************************************************************************************************************************************************************************
+  ok: [sw1] => changed=false
+    msg: Enough disk space is available to accommodate target image.
+
+  TASK [Assert flash: does NOT contain target image before copy] ****************************************************************************************************************************************************
+  ok: [sw1] => changed=false
+    msg: 'c2960x-universalk9-tar.152-7.E13.tar NOT in flash:'
+
+  TASK [Copy IOSXE image file via HTTP] *****************************************************************************************************************************************************************************
+  ok: [sw1]
+
+  ...
+  REDACTED
+  ...
+
+  TASK [output results] *********************************************************************************************************************************************************************************************
+  ok: [sw1] =>
+    msg: |-
+      MD5 - ['Done!', 'Verified (flash:c2960x-universalk9-tar152-7E13tar) = 56604f86ee9b096b3deb622b52062f6b']
+      To upgrade use: archive download-sw flash:c2960x-universalk9-tar.152-7.E13.tar
+
+  ```
+
+
+  #### Troubleshooting
+  Troubleshooting can be categorized based on which task was failed for a device. For any failed device, I would create a list of failed devices, fix the issues, then run the script again for those devices.
+  * HTTP server check failure: Ensure that the http server is operational and working. If using IIS, make sure you can reach it successfully yourself by navigating to http://1.1.1.1/http, you should see the files listed on the browser if successful.
+  * Disk Space Failure: Log into the device and clean up the disk space. This can be done manually or using the disk_clean_up playbook for the hosts that failed the disk space check i.e -e 'target_hosts=switch4,router1'
+  * MD5 Failure: This indicates a corrupted image, best to log into device manually and delete the image then try again.
+  * Errors during Upload: If you see errors related to IO errors during the upload task, this could indicate the device is unable to reach the server. Few things to check -
+    - Ensure device can reach the http server, i.e telnet 1.1.1.1 80. If not working, check for ACLs or FW that could be blocking
+    - The source http client interface could be set incorrectly. You can set this manually or use the http-source-int-update playbook to automatically set an http client source interface
+    - The server could have been overloaded during the operation and refused connection. If the http server has high CPU, this could cause IO errors, simply rerunning with less hosts could be successful
+  * Timeout or Failed to write to SSH Channel: These errors could be caused by an unreachable device or if uploading takes too long. Retry at a later time using same script. If issue persists, these devices will need to be manually prestaged.
+
+  </details>
+-------------------------------------------------
+
+- 
+  <details>
+  <summary>upgrade-ios_iosxe</summary>
+    
+  ### `upgrade-ios_iosxe`
+  This playbook will complete the upgrade on devices that we're prestaged previously.
+
+  **Summary/Overview of tasks:**  
+  * Loads the commands needed to start the upgrade from previous playbook vars
+  * Writes the config to memory
+  * Runs install command for IOS-XE devices (converts to install mode for IOS-XE devices running in bundle
+  * Runs archive download-sw for bundle IOS devices
+  * Waits for device to reboot and asserts that is running the new target version
+    
+  **Supported OS:**  
+  * IOS (bundle mode)
+  * IOS XE (bundle/install mode)
+
+  **Variables**  
+  If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+  Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will prestage for all devices belonging to groups switch or router..
+  - `ansible_user` (required): Username to log in to devices
+  - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+  - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+  **Examples**   
+  Starts upgrade process for devices in the c9200l group.
+  ```bash
+  ansible-playbook playbooks/upgrades/upgrade-ios_iosxe.yml -l "c9200l" -e "ansible_user=user" -e 'ansible_password=password'
+  ```
+
+  Output:
+  ```bash
+
+  ```
+
+  #### Troubleshooting
+
+  </details>
+-------------------------------------------------
+
+-  
+  <details>
+  <summary>http-source-int-update</summary>
+    
+  ### `http-source-int-update`
+  This playbook will dynamically set the http client source interface based on whatever interface is using the SSH ip address. For example, if you successfully SSH to IP address 1.1.1.1, that means more than likely that the interface that is assigned with that IP can be used as the http client source. Running this on client devices will not break any other functionality since the http client source is only used for copy operations, which we own.
+
+  **Supported OS:**  
+  * IOS
+  * IOS XE
+
+  **Variables**  
+  If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+  Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update http client source interface for all devices belonging to groups switch or router.
+  - `ansible_user` (required): Username to log in to devices
+  - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+  - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+  **Examples**   
+  Updates the http client source interface to interface assigned with the IP used to successfully log into the device
+  ```bash
+  ansible-playbook playbooks/upgrades/http-source-int-update.yml -e "target_hosts=c9200l" -e "ansible_user=user" -e 'ansible_password=password'
+  ```
+
+  Output:
+  ```bash
+  PLAY [Prompt for variables if needed] *****************************************************************************************************************************************************************************
+  ...
+  REDACTED
+  ...
+  TASK [Set HTTP Source] ********************************************************************************************************************************************************************************************
+  changed: [sw1]
+  changed: [sw2]
+
+  TASK [Verify HTTP source interface configuration (IOS)] ***********************************************************************************************************************************************************
+  ok: [sw1]
+  ok: [sw2]
+
+  TASK [Consolidate http_config_verify results] *********************************************************************************************************************************************************************
+  ok: [sw1]
+  ok: [sw2]
+
+  TASK [Display verification results] *******************************************************************************************************************************************************************************
+  ok: [sw1] =>
+    msg: |-
+      Configuration Verification for 1.1.1.1:
+      - Interface used: Loopback0
+      - Configuration found: ip http client source-interface Loopback0
+      - Status: SUCCESS
+  ok: [sw2] =>
+    msg: |-
+      Configuration Verification for 2.2.2.2:
+      - Interface used: Loopback0
+      - Configuration found: ip http client source-interface Loopback0
+      - Status: SUCCESS
+  ```
+  </details>
+-------------------------------------------------
 </details>
 -------------------------------------------------
+
 <details>
-<summary>disk_clean_up</summary>
-  
-### `disk_clean_up`
-This playbook will clean up the disk on a device. Used primarily for prestaging to ensure a device is ready to download a new image. This should be ran prior to any upload as this script will delete an image that is not currently active.
-For devices in bundle mode, script will delete the following patterns (the script will not delete the currently running image):
-          - '^crashinfo'
-          - '\.log$'
-          - '\.old$'
-          - '\.prv$'
-          - '\.xml$'
-          - '\.bin$'
-          - '\.tar$'
-          
-For devices in install mode, script will delete the following patterns as well as run "install remove inactive":
-          - '^crashinfo'
-          - '\.log$'
-          - '\.old$'
-          - '\.prv$'
-          - '\.xml$'
+<summary>Configure</summary>
 
-**Supported OS:**   
-* IOS (bundle mode)
-* IOS XE (bundle/install mode)
+- 
+  <details>
+  <summary>AAA</summary>
 
-**Variables**  
-- If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-- Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will clean the disk for all devices belonging to groups switch or router.
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-- `confirm` (required): When running this script, a confirmation is required before deleting files, if running using passed -e, this var is required for afk operation.
+  - 
+    <details>
+    <summary>tacacs</summary>
 
-**Examples**   
-Cleans disk image for hosts in the c9200l, c2960x, or c9000 groups
-```bash
-ansible-playbook playbooks/upgrades/disk_clean_up.yml -l 'c9200l,c2960x,c9000' -e 'ansible_user=user' -e 'ansible_password=password' -e 'confirm=yes'
-```
+    ### `tacacs`
+    This playbook will dynamically configure TACACS on devices based on the servers configured in aaa-servers.yml.
 
-Output:
-```bash
-PLAY [Disk Clean UP Playbook] *************************************************************************************************************************************************************************************
-...
-REDACTED OUTPUT - Tasks in this section are unimportant
-...
-TASK [Show device mode] *******************************************************************************************************************************************************************************************
-ok: [sw1] =>
-  msg: Device is running in install mode
-ok: [sw2] =>
-  msg: Device is running in bundle mode
-ok: [sw3] =>
-  msg: Device is running in install mode
-ok: [sw4] =>
-  msg: Device is running in install mode
-...
-REDACTED OUTPUT - Tasks in this section are unimportant
-...
-TASK [Show matched files] *****************************************************************************************************************************************************************************************
-ok: [sw1] =>
-  msg: |-
-    Found 0 matching files:
-ok: [sw2] =>
-  msg: |-
-    Found 0 matching files:
-ok: [sw3] =>
-  msg: |-
-    Found 1 matching files:
-    - smart_overall_health.log
-ok: [sw4] =>
-  msg: |-
-    Found 1 matching files:
-    - smart_overall_health.log
+    **Summary/Overview of tasks:**  
+    * Configures AAA new-model if not configured - required for devices that are newly being configured
+    * Grabs any current TACACS related configuration
+    * Configures Specified tacacs servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
+    * Configures TACACS group with the organization_prefix + TACACS, example: ANM-TACACS. Places the configured TACACS servers in the group
+    * Configures method lists with organization_prefix and the newly created TACACS group For example:
+    ```bash
+    aaa authentication login ANM_authc group ANM-TACACS local enable
+    aaa authentication enable default group ANM-TACACS enable
+    aaa authorization exec ANM_authz group ANM-TACACS local if-authenticated
+    aaa accounting commands 1 default start-stop group ANM-TACACS
+    aaa accounting commands 15 default start-stop group ANM-TACACS
+    ```
+    * Configures the VTY lines with the authentication and authorization method lists, for example:
+    ```
+    line vty 0 15
+    login authentication ANM_authc
+    authorization exec ANM_authz
+    ```
+    * Removes old and deprecated tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
+    * Shows output after configuring
 
-TASK [Cleaning up unnecessary package files] **********************************************************************************************************************************************************************
-ok: [sw1]
-ok: [sw2]
-ok: [sw3]
+    **Supported OS:**  
+    * IOS
+    * IOS XE
 
-TASK [Delete matching files] **************************************************************************************************************************************************************************************
-ok: [sw3]
-ok: [sw4]
-```
-Install remove inactive is being run on devices in install mode under the task named "Cleaning up unnecessary package files"
+    **Variables**
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update TACACS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `organization_prefix` (required): Prefix that will be appended to the TACACS group and AAA method lists
+    - `tacacs_key` (required): The PSK used for the TACACS server
+
+    **Examples**   
+    Configures TACACS on a single device. 
+    ```bash
+    ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
+    ```
+
+    Output:
+    ```bash
+    ```
+    </details>
+  -------------------------------------------------
+
+  - 
+    <details>
+    <summary>radius</summary>
+
+    ### `radius`
+    This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.
+
+    **Summary/Overview of tasks:**  
+    * Configures AAA new-model if not configured - required for devices that are newly being configured
+    * Grabs any current RADIUS related configuration
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
+    * Configures RADIUS group with the organization_prefix + RADIUS, example: ANM-RADIUS. Places the configured RADIUS servers in the group
+    * Configures method lists with organization_prefix and the newly created TACACS group For example:
+    ```bash
+    aaa authentication login ANM_authc_radius group ANM-RADIUS local enable
+    aaa authentication enable default group ANM-RADIUS enable
+    aaa authorization exec ANM_authz__radius group ANM-RADIUS local if-authenticated
+    aaa accounting commands 1 default start-stop group ANM-RADIUS
+    aaa accounting commands 15 default start-stop group ANM-RADIUS
+    ```
+    * Configures the VTY lines with the authentication and authorization method lists, for example:
+    ```
+    line vty 0 15
+    login authentication ANM_authc
+    authorization exec ANM_authz
+    ```
+    * Removes old and deprecated tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
+    * Shows output after configuring
+
+    **Supported OS:**  
+    * IOS
+    * IOS XE
+
+    **Variables**
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
+    - `radius_key` (required): The PSK used for the RADIUS server
+    - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
+    - `retries` (optional): Amount of times to retry, defaults to 3
+    - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+    - `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
+    - `config_tester` (optional): Set to 'yes' to also configure automate tester for the configured radius servers. Defaults to 'no'.
+
+    **Examples**   
+    Configures RADIUS on a single device. 
+    ```bash
+    ansible-playbook playbooks/configuration/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
+    ```
+
+    Output:
+    ```bash
+    ```
+    </details>
+  -------------------------------------------------
+
+  - 
+    <details>
+    <summary>coa_config</summary>
+
+    ### `coa_config`
+    This playbook will add CoA config to a device based on the servers configured in aaa-servers.yml. This playbook should only be used when radius config is already present on devices.
+
+    **Summary/Overview of tasks:**  
+    * Grabs any current RADIUS related configuration
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the devices config, otherwise the provided key will be used.
+    * Shows output after configuring
+
+    **Supported OS:**  
+    * IOS
+    * IOS XE
+
+    **Variables**
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `radius_key` (required): The PSK used for the RADIUS server
+
+    **Examples**   
+    Configures coA on a single device. 
+    ```bash
+    ansible-playbook playbooks/configuration/aaa/coa_config.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
+    ```
+    </details>
+  -------------------------------------------------
+
+  - 
+    <details>
+    <summary>automate_tester</summary>
+
+    ### `automate_tester`
+    This playbook will add the automate-tester config to a device. 
+
+    **Summary/Overview of tasks:**  
+    * Grabs any current RADIUS related configuration
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` with automate tester - Ensure to update aaa-servers.yml before attempting to run the playbook.
+    * Shows output after configuring
+
+    **Supported OS:**  
+    * IOS
+    * IOS XE
+
+    **Variables**
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Examples**   
+    Configures automate-tester on a single device. 
+    ```bash
+    ansible-playbook playbooks/configuration/aaa/automate_tester.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password'
+    ```
+    </details>
+  -------------------------------------------------
+
+  - 
+    <details>
+    <summary>set_radius_global_settings</summary>
+
+    ### `set_radius_global_settings`
+    This playbook will add global radius settings:
+
+    ```
+              - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
+              - "radius-server retransmit {{ retries }}"
+              - "radius-server timeout {{ timeout }}"
+              - "radius-server deadtime{{ deadtime }}"
+    ```
+
+    **Supported OS:**  
+    * IOS
+    * IOS XE
+
+    **Variables**
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
+    - `retries` (optional): Amount of times to retry, defaults to 3
+    - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+
+    **Examples**   
+    Configures global settings on a single device. 
+    ```bash
+    ansible-playbook playbooks/configuration/aaa/set_radius_global_settings.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'timeout=5' -e 'deadtime=3' -e 'retries=4'
+    ```
+    </details>
+  -------------------------------------------------
+- 
+  <details>
+    <summary>Services</summary>
+
+    - 
+      <details>
+      <summary>dns</summary>
+
+      </details>   
+    - 
+      <details>
+      <summary>igmp_snooping</summary>
+
+      </details>
+    - 
+      <details>
+      <summary>ip_sla</summary>
+
+      </details>
+
+    - 
+      <details>
+      <summary>logging</summary>
+
+      </details>
+
+    - 
+      <details>
+      <summary>netflow</summary>
+
+      </details>
+    - 
+      <details>
+      <summary>ntp</summary>
+
+      </details>
+
+    - 
+      <details>
+      <summary>qos</summary>
+
+      </details>
+    </details>
+
+- 
+  <details>
+    <summary>SNMP</summary>
+
+    - 
+      <details>
+      <summary>v2c</summary>
+      ### `v2c`
+        This playbook configures SNMP v2c with provided community string. AN ACL named "anm-ms-snmp-acl-std" is created/updated and applied to only allow snmp from the IPs specified in `./vars/jumpboxes.yml`. If jumpboxes.yml does not exist, you can copy jumpboxes-sample.yml and rename to jumpboxes.yml. You can then set the IPs for the jumpboxes like so:
+
+        ```yaml
+        snmp_allowed_ips:
+          - 10.10.10.10
+          - 10.10.10.20
+          - 10.10.10.30
+        ```
+
+        **Supported OS:**  
+        * IOS
+        * IOS XE
+
+        **Variables**
+        If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+        Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+        - `ansible_user` (required): Username to log in to devices
+        - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+        - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+        - `community` (required): the SNMP v2c community string
+
+        **Examples**   
+        Configures global settings on a single device. 
+        ```bash
+        ansible-playbook playbooks/configuration/snmp/v2c.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'community=snmpstring'
+        ```
+
+      </details>
+
+    - 
+      <details>
+      <summary>v3</summary>
+
+      ### `v2c`
+        This playbook configures SNMP v3 with provided auth/priv variables. AN ACL named "anm-ms-snmp-acl-std" is created/updated and applied to only allow snmp from the IPs specified in `./vars/jumpboxes.yml`. If jumpboxes.yml does not exist, you can copy jumpboxes-sample.yml and rename to jumpboxes.yml. You can then set the IPs for the jumpboxes like so:
+
+        ```yaml
+        snmp_allowed_ips:
+          - 10.10.10.10
+          - 10.10.10.20
+          - 10.10.10.30
+        ```
+
+        **Supported OS:**  
+        * IOS
+        * IOS XE
+
+        **Variables**
+        If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+        Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+        - `ansible_user` (required): Username to log in to devices
+        - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+        - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+        - `snmp_user` (required): the SNMP V3 Username
+        - `auth_proto` (required): the SNMP V3 Authentication Protocol (md5/sha)
+        - `auth_pass` (required): the SNMP V3 Authentication password
+        - `priv_proto` (required): the SNMP V3 Privacy Protocol (des,aes)
+        - `priv_pass` (required): the SNMP V3 Privacy password
+        - `group` (required): the SNMP V3 group that the user will belong to
+
+
+        **Examples**   
+        Configures SNMP v3 on a single device. 
+        ```bash
+        ansible-playbook playbooks/configuration/snmp/v3.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'snmp_user=anm' -e 'auth_proto=sha' -e 'auth_pass=password' -e 'priv_proto=aes' -e 'priv_pass=password' -e 'group=ROGROUP'
+        ```
+
+      </details>
+
+  </details>
+
+    </details>
+</details>
+  -------------------------------------------------
+
+
+
+<details>
+<summary>Verify</summary>
+
+- 
+  <details>
+  <summary>custom</summary>
+
+  </details>
+
+
+- 
+  <details>
+  <summary>verify_clock</summary>
+
+  </details>
+
+- 
+  <details>
+  <summary>verify_dns</summary>
+
+  </details>
+
+- 
+  <details>
+  <summary>verify_license</summary>
+
+  </details>
+
+- 
+  <details>
+  <summary>verify_spanning_tree</summary>
+
+  </details>
 
 </details>
 -------------------------------------------------
+
+
 <details>
-<summary>prestage-ios_iosxe</summary>
-  
-### `prestage-ios_iosxe`
-This playbook will upload the required image via http and verify md5 of the file. The playbook will first check to make sure the device is not currently running the target version then make sure that the device has enough disk space before attempting the upload. Playbook can be run multiple times on devices due to safety checks. A previously successful device will not redownload the image for example.
+<summary>Onboarding</summary>
 
-**Summary/Overview of tasks:**  
-* Server check: Ensures that the http and folder are reachable, playbook will not continue if server is not reachable.
-* Backs Up device config to /opt/ansible_local/anm_itops_playbooks/backup
-* Version Check: If a device is already running the target version, the device will be marked as complete.
-* Disk Space Check: If a device does not have enough space for new image, it will be marked as failed. Rest of tasks will be skipped
-* Check for current image in flash: Playbook will check if the software image is already on the device, if it is, it will skip upload and only verify MD5
-* Upload Image: After Tasks to assert device does not have the image, the playbook may seem to freeze, the first batch of devices will begin the image copy and no output or progress will be shown during this time. You are free to walk away.
-* Verify MD5: After upload (or if image is already on disk), the playbook will verify the image MD5. 
-* Output: If all tasks complete successfully, each device will show the verified output, as well as the command needed to install/update the software for later use.
-
-**Supported OS:**  
-* IOS (bundle mode)
-* IOS XE (bundle/install mode)
-
-**Variables**  
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will prestage for all devices belonging to groups switch or router..
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-- `http_server` (required): The IP address of the http server i.e 10.10.10.10
-
-**Examples**   
-Starts prestage process for devices in the c9200l group, using http server 1.1.1.1
-```bash
-ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -l "c9200l" -e "ansible_user=user" -e 'ansible_password=password' -e "http_server=1.1.1.1"
-```
-
-Output:
-```bash
-PLAY [Prompt for variables if needed] *****************************************************************************************************************************************************************************
-...
-REDEACTED
-...
-
-TASK [Debug all device facts] *************************************************************************************************************************************************************************************
-ok: [sw1] =>
-  msg: |-
-    Device Configuration Facts:
-    ========================
-    Device Mode: bundle
-    Target Image: c2960x-universalk9-tar.152-7.E13.tar
-    Target Image MD5: 56604f86ee9b096b3deb622b52062f6b
-    Target Image Size: 41574400
-    Target Image Size KB: 41574.4
-    Target Version: 15.2(7)E13
-    Flash Directory: flash:
-    Timestamp: 2025-11-06
-    Current Version: 15.2(2)E7
-    IOS Type: IOS
-    Device Upgraded: False
-    Dir Image Check:
-    Free Space: 94977024
-
-TASK [Config Backup /opt/ansible_local/anm_itops_playbooks/backup] ************************************************************************************************************************************************
-changed: [sw1]
-
-TASK [Check running image] ****************************************************************************************************************************************************************************************
-ok: [sw1] => changed=false
-  msg: METRO-ROMA-SW not running target version 15.2(7)E13, current version is 15.2(2)E7
-
-TASK [Assert Enough Disk Space Available] *************************************************************************************************************************************************************************
-ok: [sw1] => changed=false
-  msg: Enough disk space is available to accommodate target image.
-
-TASK [Assert flash: does NOT contain target image before copy] ****************************************************************************************************************************************************
-ok: [sw1] => changed=false
-  msg: 'c2960x-universalk9-tar.152-7.E13.tar NOT in flash:'
-
-TASK [Copy IOSXE image file via HTTP] *****************************************************************************************************************************************************************************
-ok: [sw1]
-
-...
-REDACTED
-...
-
-TASK [output results] *********************************************************************************************************************************************************************************************
-ok: [sw1] =>
-  msg: |-
-    MD5 - ['Done!', 'Verified (flash:c2960x-universalk9-tar152-7E13tar) = 56604f86ee9b096b3deb622b52062f6b']
-    To upgrade use: archive download-sw flash:c2960x-universalk9-tar.152-7.E13.tar
-
-```
-
-
-#### Troubleshooting
-Troubleshooting can be categorized based on which task was failed for a device. For any failed device, I would create a list of failed devices, fix the issues, then run the script again for those devices.
-* HTTP server check failure: Ensure that the http server is operational and working. If using IIS, make sure you can reach it successfully yourself by navigating to http://1.1.1.1/http, you should see the files listed on the browser if successful.
-* Disk Space Failure: Log into the device and clean up the disk space. This can be done manually or using the disk_clean_up playbook for the hosts that failed the disk space check i.e -e 'target_hosts=switch4,router1'
-* MD5 Failure: This indicates a corrupted image, best to log into device manually and delete the image then try again.
-* Errors during Upload: If you see errors related to IO errors during the upload task, this could indicate the device is unable to reach the server. Few things to check -
-  - Ensure device can reach the http server, i.e telnet 1.1.1.1 80. If not working, check for ACLs or FW that could be blocking
-  - The source http client interface could be set incorrectly. You can set this manually or use the http-source-int-update playbook to automatically set an http client source interface
-  - The server could have been overloaded during the operation and refused connection. If the http server has high CPU, this could cause IO errors, simply rerunning with less hosts could be successful
-* Timeout or Failed to write to SSH Channel: These errors could be caused by an unreachable device or if uploading takes too long. Retry at a later time using same script. If issue persists, these devices will need to be manually prestaged.
 
 </details>
 -------------------------------------------------
-<details>
-<summary>upgrade-ios_iosxe</summary>
-  
-### `upgrade-ios_iosxe`
-This playbook will complete the upgrade on devices that we're prestaged previously.
 
-**Summary/Overview of tasks:**  
-* Loads the commands needed to start the upgrade from previous playbook vars
-* Writes the config to memory
-* Runs install command for IOS-XE devices (converts to install mode for IOS-XE devices running in bundle
-* Runs archive download-sw for bundle IOS devices
-* Waits for device to reboot and asserts that is running the new target version
-  
-**Supported OS:**  
-* IOS (bundle mode)
-* IOS XE (bundle/install mode)
-
-**Variables**  
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will prestage for all devices belonging to groups switch or router..
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-
-**Examples**   
-Starts upgrade process for devices in the c9200l group.
-```bash
-ansible-playbook playbooks/upgrades/upgrade-ios_iosxe.yml -l "c9200l" -e "ansible_user=user" -e 'ansible_password=password'
-```
-
-Output:
-```bash
-
-```
-
-#### Troubleshooting
-
-</details>
--------------------------------------------------
-<details>
-<summary>http-source-int-update</summary>
-  
-### `http-source-int-update`
-This playbook will dynamically set the http client source interface based on whatever interface is using the SSH ip address. For example, if you successfully SSH to IP address 1.1.1.1, that means more than likely that the interface that is assigned with that IP can be used as the http client source. Running this on client devices will not break any other functionality since the http client source is only used for copy operations, which we own.
-
-**Supported OS:**  
-* IOS
-* IOS XE
-
-**Variables**  
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update http client source interface for all devices belonging to groups switch or router.
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-
-**Examples**   
-Updates the http client source interface to interface assigned with the IP used to successfully log into the device
-```bash
-ansible-playbook playbooks/upgrades/http-source-int-update.yml -e "target_hosts=c9200l" -e "ansible_user=user" -e 'ansible_password=password'
-```
-
-Output:
-```bash
-PLAY [Prompt for variables if needed] *****************************************************************************************************************************************************************************
-...
-REDACTED
-...
-TASK [Set HTTP Source] ********************************************************************************************************************************************************************************************
-changed: [sw1]
-changed: [sw2]
-
-TASK [Verify HTTP source interface configuration (IOS)] ***********************************************************************************************************************************************************
-ok: [sw1]
-ok: [sw2]
-
-TASK [Consolidate http_config_verify results] *********************************************************************************************************************************************************************
-ok: [sw1]
-ok: [sw2]
-
-TASK [Display verification results] *******************************************************************************************************************************************************************************
-ok: [sw1] =>
-  msg: |-
-    Configuration Verification for 1.1.1.1:
-    - Interface used: Loopback0
-    - Configuration found: ip http client source-interface Loopback0
-    - Status: SUCCESS
-ok: [sw2] =>
-  msg: |-
-    Configuration Verification for 2.2.2.2:
-    - Interface used: Loopback0
-    - Configuration found: ip http client source-interface Loopback0
-    - Status: SUCCESS
-```
-</details>
--------------------------------------------------
-<details>
-<summary>tacacs</summary>
-
-### `tacacs`
-This playbook will dynamically configure TACACS on devices based on the servers configured in aaa-servers.yml.
-
-**Summary/Overview of tasks:**  
-* Configures AAA new-model if not configured - required for devices that are newly being configured
-* Grabs any current TACACS related configuration
-* Configures Specified tacacs servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
-* Configures TACACS group with the organization_prefix + TACACS, example: ANM-TACACS. Places the configured TACACS servers in the group
-* Configures method lists with organization_prefix and the newly created TACACS group For example:
-```bash
-aaa authentication login ANM_authc group ANM-TACACS local enable
-aaa authentication enable default group ANM-TACACS enable
-aaa authorization exec ANM_authz group ANM-TACACS local if-authenticated
-aaa accounting commands 1 default start-stop group ANM-TACACS
-aaa accounting commands 15 default start-stop group ANM-TACACS
-```
-* Configures the VTY lines with the authentication and authorization method lists, for example:
-```
-line vty 0 15
-login authentication ANM_authc
-authorization exec ANM_authz
-```
-* Removes old and deprecated tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
-* Shows output after configuring
-
-**Supported OS:**  
-* IOS
-* IOS XE
-
-**Variables**
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update TACACS for all devices belonging to groups switch or router.
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-- `organization_prefix` (required): Prefix that will be appended to the TACACS group and AAA method lists
-- `tacacs_key` (required): The PSK used for the TACACS server
-
-**Examples**   
-Configures TACACS on a single device. 
-```bash
-ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
-```
-
-Output:
-```bash
-```
-</details>
--------------------------------------------------
-<details>
-<summary>radius</summary>
-
-### `radius`
-This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.
-
-**Summary/Overview of tasks:**  
-* Configures AAA new-model if not configured - required for devices that are newly being configured
-* Grabs any current RADIUS related configuration
-* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
-* Configures RADIUS group with the organization_prefix + RADIUS, example: ANM-RADIUS. Places the configured RADIUS servers in the group
-* Configures method lists with organization_prefix and the newly created TACACS group For example:
-```bash
-aaa authentication login ANM_authc_radius group ANM-RADIUS local enable
-aaa authentication enable default group ANM-RADIUS enable
-aaa authorization exec ANM_authz__radius group ANM-RADIUS local if-authenticated
-aaa accounting commands 1 default start-stop group ANM-RADIUS
-aaa accounting commands 15 default start-stop group ANM-RADIUS
-```
-* Configures the VTY lines with the authentication and authorization method lists, for example:
-```
-line vty 0 15
-login authentication ANM_authc
-authorization exec ANM_authz
-```
-* Removes old and deprecated tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
-* Shows output after configuring
-
-**Supported OS:**  
-* IOS
-* IOS XE
-
-**Variables**
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-- `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
-- `radius_key` (required): The PSK used for the RADIUS server
-- `timeout` (optional): Timeout in seconds, defaults to 3 seconds
-- `retries` (optional): Amount of times to retry, defaults to 3
-- `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
-- `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
-- `config_tester` (optional): Set to 'yes' to also configure automate tester for the configured radius servers. Defaults to 'no'.
-
-**Examples**   
-Configures RADIUS on a single device. 
-```bash
-ansible-playbook playbooks/configuration/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
-```
-
-Output:
-```bash
-```
-</details>
--------------------------------------------------
-<details>
-<summary>coa_config</summary>
-
-### `coa_config`
-This playbook will add CoA config to a device based on the servers configured in aaa-servers.yml. This playbook should only be used when radius config is already present on devices.
-
-**Summary/Overview of tasks:**  
-* Grabs any current RADIUS related configuration
-* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the devices config, otherwise the provided key will be used.
-* Shows output after configuring
-
-**Supported OS:**  
-* IOS
-* IOS XE
-
-**Variables**
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-- `radius_key` (required): The PSK used for the RADIUS server
-
-**Examples**   
-Configures coA on a single device. 
-```bash
-ansible-playbook playbooks/configuration/aaa/coa_config.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
-```
-</details>
--------------------------------------------------
-<details>
-<summary>automate_tester</summary>
-
-### `automate_tester`
-This playbook will add the automate-tester config to a device. 
-
-**Summary/Overview of tasks:**  
-* Grabs any current RADIUS related configuration
-* Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` with automate tester - Ensure to update aaa-servers.yml before attempting to run the playbook.
-* Shows output after configuring
-
-**Supported OS:**  
-* IOS
-* IOS XE
-
-**Variables**
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-
-**Examples**   
-Configures automate-tester on a single device. 
-```bash
-ansible-playbook playbooks/configuration/aaa/automate_tester.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password'
-```
-</details>
--------------------------------------------------
-<details>
-<summary>set_radius_global_settings</summary>
-
-### `set_radius_global_settings`
-This playbook will add global radius settings:
-
-```
-          - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
-          - "radius-server retransmit {{ retries }}"
-          - "radius-server timeout {{ timeout }}"
-          - "radius-server deadtime{{ deadtime }}"
-```
-
-**Supported OS:**  
-* IOS
-* IOS XE
-
-**Variables**
-If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
-- `ansible_user` (required): Username to log in to devices
-- `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-- `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-- `timeout` (optional): Timeout in seconds, defaults to 3 seconds
-- `retries` (optional): Amount of times to retry, defaults to 3
-- `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
-
-**Examples**   
-Configures global settings on a single device. 
-```bash
-ansible-playbook playbooks/configuration/aaa/set_radius_global_settings.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'timeout=5' -e 'deadtime=3' -e 'retries=4'
-```
-</details>
 
 ## Scripts
 <details>

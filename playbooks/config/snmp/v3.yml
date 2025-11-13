@@ -1,63 +1,131 @@
 ---
-- name: Group Display and Selection
-  hosts: localhost
-  gather_facts: false
-
-  vars_prompt:
-    - name: target_hosts
-      prompt: |
-        Available groups:
-        {% for g in groups.keys() | sort %}
-        - {{ g }}
-        {% endfor %}
-        
-        Enter host(s) or group(s) separated by commas (e.g., router,switch1,switch4)
-      private: no
-    
-  tasks:
-    - name: Store answers as facts for next play
-      set_fact:
-        target_hosts: "{{ target_hosts }}"
-      run_once: true
-      no_log: true
-
-- name: Configure SNMP v2c with ACL (IOS, IOS-XE, ASA, NX-OS, IOS-XR)
-  hosts: "{{ hostvars['localhost']['target_hosts'].split(',') }}"
-  gather_facts: false
+- name: Configure SNMP v2c
+  hosts: all
+  gather_facts: no
+  connection: network_cli
   vars_files:
-    - jumpboxes.yml
-
-  vars_prompt:
-    - name: ansible_user
-      prompt: "Enter device username"
-      private: no
-    - name: ansible_password
-      prompt: "Enter device password"
-      private: yes
-    - name: snmp_v3_name
-      prompt: "Enter SNMPv3 username"
-      private: no
-    - name: snmp_v3_auth_protocol
-      prompt: "Enter SNMPv3 auth protocol (md5/sha)"
-      private: no
-      default: sha
-    - name: snmp_v3_auth_password
-      prompt: "Enter SNMPv3 auth password"
-      private: yes
-    - name: snmp_v3_priv_protocol
-      prompt: "Enter SNMPv3 privacy protocol (aes/des)"
-      private: no
-      default: aes
-    - name: snmp_v3_priv_password
-      prompt: "Enter SNMPv3 privacy password"
-      private: yes
-    - name: snmp_v3_group
-      prompt: "Enter SNMPv3 group name"
-      private: no
-      default: ROGroup
+    - ./vars/jumpboxes.yml
 
   vars:
+    ansible_become_password: "{{ enable | default(ansible_password) }}"
+    ansible_become: true
+    ansible_become_method: enable
     snmp_acl_name: "anm-ms-snmp-acl-std"
+    snmp_v3_name: "{{ snmp_user }}"
+    snmp_v3_auth_protocol: "{{ auth_proto }}"
+    snmp_v3_auth_password: "{{ auth_pass }}"
+    snmp_v3_priv_protocol: "{{ priv_proto }}"
+    snmp_v3_priv_password: "{{ priv_pass }}"
+    snmp_v3_group: "{{ group }}"
+
+  pre_tasks:
+
+    - name: Prompt for username
+      pause:
+        prompt: "Enter username"
+        echo: yes
+      register: user_input
+      when: ansible_user is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for password
+      pause:
+        prompt: "Enter password"
+        echo: no
+      register: pass_input
+      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for SNMP User
+      pause:
+        prompt: "Enter SNMP username"
+        echo: yes
+      register: snmpuser
+      when: snmp_user is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for Authentication Protocol
+      pause:
+        prompt: "Enter SNMPv3 auth protocol (md5/sha)"
+        echo: yes
+      register: snmpauth
+      when: auth_proto is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for Authentication Password
+      pause:
+        prompt: "Enter SNMPv3 auth password"
+        echo: no
+      register: authpass_input
+      when: auth_pass is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for Privacy Protocol
+      pause:
+        prompt: "Enter SNMPv3 privacy protocol (aes/des)"
+        echo: yes
+      register: priv_proto_input
+      when: priv_proto is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for Privacy Password
+      pause:
+        prompt: "Enter SNMPv3 priv password"
+        echo: no
+      register: privpass_input
+      when: priv_pass is not defined
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Prompt for Privacy Password
+      pause:
+        prompt: "Enter SNMPv3 group name"
+        echo: no
+      register: group_input
+      when: group is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set username from prompt
+      set_fact:
+        ansible_user: "{{ user_input.user_input }}"
+      when: user_input is defined and user_input.user_input is defined
+
+    - name: Set password from prompt
+      set_fact:
+        ansible_password: "{{ pass_input.user_input }}"
+      when: pass_input is defined and pass_input.user_input is defined
+
+    - name: Set snmpuser from prompt
+      set_fact:
+        snmp_v3_name: "{{ snmpuser.user_input }}"
+      when: snmpuser is defined and snmpuser.user_input is defined
+
+    - name: Set snmpauth from prompt
+      set_fact:
+        snmp_v3_auth_protocol: "{{ snmpauth.user_input }}"
+      when: snmpauth is defined and snmpauth.user_input is defined
+
+    - name: Set authpass from prompt
+      set_fact:
+        snmp_v3_auth_password: "{{ authpass_input.user_input }}"
+      when: authpass_input is defined and authpass_input.user_input is defined
+
+    - name: Set priv_proto from prompt
+      set_fact:
+        snmp_v3_priv_protocol: "{{ priv_proto_input.user_input }}"
+      when: priv_proto_input is defined and priv_proto_input.user_input is defined
+
+    - name: Set privpass from prompt
+      set_fact:
+        snmp_v3_priv_password: "{{ privpass_input.user_input }}"
+      when: privpass_input is defined and privpass_input.user_input is defined
 
   tasks:
 
