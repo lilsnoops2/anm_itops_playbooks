@@ -42,6 +42,7 @@ This is a collection of playbooks for ANM ITOps automation
         - [`verify_dns`](#verify_dns)
         - [`verify_license`](#verify_license)
         - [`verify_spanning_tree`](#verify_spanning_tree)
+        - [`verify_vlans`](#verify_vlans)
     - [`onboarding`](#onboarding)
   - [Scripts](#scripts)
     - [`iis.ps1`](#iis.ps1)
@@ -1048,12 +1049,150 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>custom</summary>
 
-  </details>
+  ### `custom`
 
+    Playbook allows you to run a custom show command on a ios/ios_xe devices. Output is display on CLI as well as save in `./outputs`
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE  
+
+    **Variables** 
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `command` (required): the show command you want to run, please use the non shortcut versions of the command, for example: show running-configuration | include dns
+
+    **Examples**   
+    Runs "show ip interface brief" on all switches 
+
+    ```bash 
+    ansible-playbook playbooks/verify/custom.yml -l 'switch' -e 'ansible_user=user' -e 'ansible_password=password' -e 'command="show ip interface brief"'
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    TASK [Display full aggregated log file contents] ********************************************************
+    ok: [R1] =>
+      msg: |
+        =================== Aggregated Command Output Log ===================
+        =======================================================
+        Device: R1
+        Timestamp: 2025-11-13 18:10:45 UTC
+        Command: show ip interface brief
+        =======================================================
+        Interface              IP-Address      OK? Method Status                Protocol
+        GigabitEthernet0/0     10.1.1.1        YES manual up                    up
+        GigabitEthernet0/1     unassigned      YES unset  administratively down down
+        Loopback0              192.168.1.1     YES manual up                    up
+
+        =======================================================
+        Device: R2
+        Timestamp: 2025-11-13 18:10:46 UTC
+        Command: show ip interface brief
+        =======================================================
+        Interface              IP-Address      OK? Method Status                Protocol
+        GigabitEthernet0/0     10.1.1.2        YES manual up                    up
+        Loopback0              192.168.2.2     YES manual up                    up
+
+    ```
+
+  **Example File Output**
+  ```yaml 
+  =======================================================
+  Device: R1
+  Timestamp: 2025-11-13 18:10:45 UTC
+  Command: show ip interface brief
+  =======================================================
+  Interface              IP-Address      OK? Method Status                Protocol
+  GigabitEthernet0/0     10.1.1.1        YES manual up                    up
+  GigabitEthernet0/1     unassigned      YES unset  administratively down down
+  Loopback0              192.168.1.1     YES manual up                    up
+
+  =======================================================
+  Device: R2
+  Timestamp: 2025-11-13 18:10:46 UTC
+  Command: show ip interface brief
+  =======================================================
+  Interface              IP-Address      OK? Method Status                Protocol
+  GigabitEthernet0/0     10.1.1.2        YES manual up                    up
+  Loopback0              192.168.2.2     YES manual up                    up
+
+  ``` 
+
+  </details>
 
 - 
   <details>
   <summary>verify_clock</summary>
+
+  ### `verify_clock`
+
+    This playbook verifies the current date and time on devices and compares it with the VASAs/PASAs local system time. It also collects information about configured NTP servers and NTP associations to ensure proper time synchronization. Output is displayed on CLI as well as saved in `./outputs`
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE  
+
+    **Variables** 
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Examples**   
+    Runs time verification on all switches 
+
+    ```bash 
+    ansible-playbook playbooks/verify/verify_clock.yml -l 'switch' -e 'ansible_user=user' -e 'ansible_password=password'
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    TASK [Display time and NTP information] ******************************************************************
+    ok: [R1] => 
+      msg: |
+        Device: R1
+
+        === Local (WSL) Time ===
+        2025-11-13 10:21:34 PST
+
+        === Device Time ===
+        *10:21:31.123 PST Thu Nov 13 2025
+
+        === Time Verification ===
+        Please compare the above times manually — adjust clock or NTP if out of sync.
+
+        === NTP Configuration ===
+        Command: show run | include ntp
+        ntp server 192.168.10.1
+        ntp server 192.168.10.2 prefer
+
+        Command: show ntp associations
+        address         ref clock     st  when  poll reach  delay  offset  disp
+        *192.168.10.1   .GPS.          1   37    64   377   1.2    0.1     0.8
+        +192.168.10.2   .GPS.          1   59    64   377   1.3    0.2     0.7
+    ```
+
+  **Example File Output**
+  ```yaml
+  =======================================================
+  Device: R1
+  Local Time: 2025-11-13 10:21:34 PST
+  Device Time: 10:21:31.123 PST Thu Nov 13 2025
+  =======================================================
+  NTP Servers:
+  ntp server 192.168.10.1
+  ntp server 192.168.10.2 prefer
+  NTP Associations:
+  *192.168.10.1 reach=377 offset=0.1 delay=1.2
+  +192.168.10.2 reach=377 offset=0.2 delay=1.3
+  ``` 
 
   </details>
 
@@ -1061,17 +1200,393 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
   <summary>verify_dns</summary>
 
+  ### `verify_dns`
+
+    This playbook collects configured DNS server information. It verifies that DNS settings are correctly configured across all devices. Output is displayed on CLI as well as saved in `./outputs`
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE
+    * IOS XR
+    * ASA
+    * FMC/FTD
+    * Palo Alto
+
+    **Variables** 
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Examples**   
+    Checks DNS servers on all switches
+
+    ```bash 
+    ansible-playbook playbooks/verify/verify_dns.yml -l 'switch' -e 'ansible_user=user' -e 'ansible_password=password'
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    TASK [Print saved DNS log contents] ********************************************************************
+    ok: [R1] =>
+      msg: |
+        =================== Aggregated DNS Log ===================
+        =======================================================
+        Device: R1
+        Timestamp: 2025-11-13 20:15:12 UTC
+        =======================================================
+        DNS Servers:
+        8.8.8.8
+        8.8.4.4
+
+        =======================================================
+        Device: ASA1
+        Timestamp: 2025-11-13 20:15:13 UTC
+        =======================================================
+        DNS Servers:
+        10.10.10.10
+        10.10.20.20
+
+    ```
+
+  **Example File Output**
+  ```yaml
+  =======================================================
+  Device: R1
+  Timestamp: 2025-11-13 20:15:12 UTC
+  =======================================================
+  DNS Servers:
+  8.8.8.8
+  8.8.4.4
+
+  =======================================================
+  Device: ASA1
+  Timestamp: 2025-11-13 20:15:13 UTC
+  =======================================================
+  DNS Servers:
+  10.10.10.10
+  10.10.20.20
+
+  ``` 
+
   </details>
 
 - 
   <details>
   <summary>verify_license</summary>
 
+  ### `verify_license`
+
+    This playbook collects license and throughput information from devices. It checks installed licenses, their status, and hardware throughput to verify device capabilities and compliance. Output is displayed on CLI as well as saved in `./outputs`
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE  
+
+    **Variables** 
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Examples**   
+    Check license info on all switches 
+
+    ```bash 
+    ansible-playbook playbooks/verify/verify_license.yml -l 'switch' -e 'ansible_user=user' -e 'ansible_password=password'
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    TASK [Display collected information] ********************************************************************
+    ok: [R2] =>
+      msg: |
+        Device: R2
+
+        === Throughput Info ===
+        Command: show platform hardware throughput crypto
+        Throughput: 300 Mbps
+
+        Command: show platform hardware throughput level
+        Level: 500 Mbps
+
+        === License Info ===
+        Command: show license status
+        License UDI: PID:C9300-24P-E,SN:FCW2123L0AB
+        Smart Licensing: ENABLED
+
+        Command: show license all
+        License Information:
+          Feature: Network Advantage
+          State: Active, In Use
+          License Type: Permanent
+
+        Command: show license udi
+        Device# UDI:
+          PID: C9300-24P-E
+          SN: FCW2123L0AB
+
+    ```
+
+  **Example File Output**
+  ```yaml
+  =======================================================
+  Device: R2
+  Timestamp: 2025-11-13 18:05:14 UTC
+  =======================================================
+
+  === Throughput Info ===
+  show platform hardware throughput crypto
+  Throughput: 300 Mbps
+
+  show platform hardware throughput level
+  Level: 500 Mbps
+
+  === License Info ===
+  show license status
+  Smart Licensing: ENABLED
+
+  show license all
+  Feature: Network Advantage
+  State: Active, In Use
+  License Type: Permanent
+
+  show license udi
+  PID: C9300-24P-E
+  SN: FCW2123L0AB
+
+  ``` 
+
   </details>
 
 - 
   <details>
   <summary>verify_spanning_tree</summary>
+
+  ### `verify_spanning_tree`
+
+    This playbook collects and verifies Spanning Tree Protocol (STP) information from IOS/IOS-XE devices. It gathers summary, VLAN-specific, and interface-level STP details to ensure proper loop prevention, correct root bridge placement, and expected port roles. Output is displayed on CLI as well as saved in `./outputs`
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE  
+
+    **Variables** 
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `vlan` (optional): Limit vlans, can use lists/ranges (i.e 1,10,15 or 1-10)
+
+    **Examples**   
+    Check spanning tree info on all switches for vlan 1
+
+    ```bash 
+    ansible-playbook playbooks/verify/verify_spanning_tree.yml -l 'switch' -e 'ansible_user=user' -e 'ansible_password=password' -e 'vlan=1'
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    TASK [Print saved STP log contents] ********************************************************************
+    ok: [R1] =>
+      msg: |
+        =================== Aggregated STP Log ===================
+        =======================================================
+        Device: R1
+        Timestamp: 2025-11-13 18:30:12 UTC
+        =======================================================
+
+        === STP Summary ===
+        VLAN0001
+          Spanning tree enabled protocol ieee
+          Root ID    Priority    32769
+                    Address     001a.2bff.3c4d
+          Hello Time 2 sec  Max Age 20 sec  Forward Delay 15 sec
+          Interface              Role Sts Cost      Prio.Nbr Type
+          Gi0/1                  Desg FWD 4         128.1   P2p
+
+        === STP VLAN Info ===
+        VLAN0001
+          Root ID    Priority    32769
+                    Address     001a.2bff.3c4d
+          Bridge ID Priority 32769 (priority 32768 sys-id-ext 1)
+                    Address 001a.2bff.3c4d
+
+        === STP Interfaces ===
+        Interface              Role Sts Cost      Prio.Nbr Type
+        Gi0/1                  Desg FWD 4         128.1   P2p
+        Gi0/2                  Root FWD 4         128.2   P2p
+        Gi0/3                  Altn BLK 4         128.3   P2p
+
+        =======================================================
+        Device: R2
+        Timestamp: 2025-11-13 18:30:13 UTC
+        =======================================================
+
+        === STP Summary ===
+        VLAN0001
+          Spanning tree enabled protocol ieee
+          Root ID    Priority    32769
+                    Address     001a.2bff.3c5e
+          Hello Time 2 sec  Max Age 20 sec  Forward Delay 15 sec
+          Interface              Role Sts Cost      Prio.Nbr Type
+          Gi0/1                  Desg FWD 4         128.1   P2p
+
+        === STP VLAN Info ===
+        VLAN0001
+          Root ID    Priority    32769
+                    Address     001a.2bff.3c5e
+          Bridge ID Priority 32769 (priority 32768 sys-id-ext 1)
+                    Address 001a.2bff.3c5e
+
+        === STP Interfaces ===
+        Interface              Role Sts Cost      Prio.Nbr Type
+        Gi0/1                  Desg FWD 4         128.1   P2p
+        Gi0/2                  Root FWD 4         128.2   P2p
+        Gi0/3                  Altn BLK 4         128.3   P2p
+    ```
+
+  **Example File Output**
+  ```yaml
+  =======================================================
+  Device: R1
+  Timestamp: 2025-11-13 18:30:12 UTC
+  =======================================================
+
+  === STP Summary ===
+  VLAN0001
+    Spanning tree enabled protocol ieee
+    Root ID    Priority    32769
+              Address     001a.2bff.3c4d
+    Hello Time 2 sec  Max Age 20 sec  Forward Delay 15 sec
+    Interface              Role Sts Cost      Prio.Nbr Type
+    Gi0/1                  Desg FWD 4         128.1   P2p
+
+  === STP VLAN Info ===
+  VLAN0001
+    Root ID    Priority    32769
+              Address     001a.2bff.3c4d
+    Bridge ID Priority 32769 (priority 32768 sys-id-ext 1)
+              Address 001a.2bff.3c4d
+
+  === STP Interfaces ===
+  Interface              Role Sts Cost      Prio.Nbr Type
+  Gi0/1                  Desg FWD 4         128.1   P2p
+  Gi0/2                  Root FWD 4         128.2   P2p
+  Gi0/3                  Altn BLK 4         128.3   P2p
+
+  ```
+
+  </details>
+
+- 
+  <details>
+  <summary>verify_vlan</summary>
+
+  ### `verify_vlan`
+
+    This playbook collects VLAN configuration and status information from IOS/IOS-XE devices. Playbook verifies VLAN assignments, trunk interfaces, vtp info, and overall VLAN health across multiple switches. Output is displayed on CLI as well as saved in `./outputs`
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE  
+
+    **Variables** 
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Examples**   
+    Check vlan info on switches
+
+    ```bash 
+    ansible-playbook playbooks/verify/verify_vlans.yml -l 'switch' -e 'ansible_user=user' -e 'ansible_password=password'
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    TASK [Print saved VLAN and VTP log contents] **********************************************
+    ok: [R1] =>
+      msg: |
+        =================== Aggregated VLAN & VTP Log ===================
+        =======================================================
+        Device: R1
+        Timestamp: 2025-11-13 19:25:12 UTC
+        =======================================================
+
+        === VLAN Brief ===
+        VLAN Name                             Status    Ports
+        1    default                          active    Gi0/1, Gi0/2
+        10   SALES                            active    Gi0/3
+        20   ENGINEERING                       active    Gi0/4
+
+        === VLAN Summary ===
+        Total VLANs configured: 3
+        Active VLANs: 3
+        Suspended VLANs: 0
+
+        === VLAN Trunk Interfaces ===
+        Port        Mode         Encapsulation  Status        Native VLAN
+        Gi0/1       on           802.1q         trunking      1
+        Gi0/2       on           802.1q         trunking      1
+
+        === VTP Status ===
+        VTP Version                     : 2
+        Configuration Revision          : 42
+        Maximum VLANs supported locally : 1005
+        Number of existing VLANs        : 3
+        VTP Operating Mode               : Server
+        VTP Domain Name                  : CORP_NET
+        VTP Pruning Mode                 : Disabled
+        VTP V2 Mode                      : Enabled
+        VTP Traps Generation             : Disabled
+
+    ```
+
+  **Example File Output**
+  ```yaml
+  =======================================================
+  Device: R1
+  Timestamp: 2025-11-13 19:25:12 UTC
+  =======================================================
+
+  === VLAN Brief ===
+  VLAN Name                             Status    Ports
+  1    default                          active    Gi0/1, Gi0/2
+  10   SALES                            active    Gi0/3
+  20   ENGINEERING                       active    Gi0/4
+
+  === VLAN Summary ===
+  Total VLANs configured: 3
+  Active VLANs: 3
+  Suspended VLANs: 0
+
+  === VLAN Trunk Interfaces ===
+  Port        Mode         Encapsulation  Status        Native VLAN
+  Gi0/1       on           802.1q         trunking      1
+  Gi0/2       on           802.1q         trunking      1
+
+  === VTP Status ===
+  VTP Version                     : 2
+  Configuration Revision          : 42
+  Maximum VLANs supported locally : 1005
+  Number of existing VLANs        : 3
+  VTP Operating Mode               : Server
+  VTP Domain Name                  : CORP_NET
+  VTP Pruning Mode                 : Disabled
+  VTP V2 Mode                      : Enabled
+  VTP Traps Generation             : Disabled
+
+  ```
 
   </details>
 

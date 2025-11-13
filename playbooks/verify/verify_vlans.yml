@@ -1,5 +1,5 @@
 ---
-- name: Verify Spanning Tree Protocol (STP) on devices
+- name: Verify VLANs and VTP on devices
   hosts: all
   gather_facts: no
   connection: network_cli
@@ -8,8 +8,7 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
-    output_file: "outputs/stp_check_summary_{{ lookup('pipe', 'date +%Y-%m-%d') }}.txt"
-    vlan: ""   # Optional: provide a VLAN ID to limit STP info
+    output_file: "outputs/vlan_check_summary_{{ lookup('pipe', 'date +%Y-%m-%d') }}.txt"
 
   pre_tasks:
 
@@ -43,63 +42,68 @@
 
   tasks:
 
-    - name: Get STP summary
+    - name: Get VLAN brief information
       ios_command:
         commands:
-          - show spanning-tree summary
-      register: stp_summary
+          - show vlan brief
+      register: vlan_brief
       ignore_errors: true
 
-    - name: Get STP VLAN info
+    - name: Get VLAN status summary
       ios_command:
-        commands: >
-          {% if vlan %}
-          show spanning-tree vlan {{ vlan }}
-          {% else %}
-          show spanning-tree vlan
-          {% endif %}
-      register: stp_vlan
+        commands:
+          - show vlan summary
+      register: vlan_summary
       ignore_errors: true
 
-    - name: Get STP interface roles and states
+    - name: Get VLAN trunk interfaces
       ios_command:
-        commands: >
-          {% if vlan %}
-          show spanning-tree vlan {{ vlan }} detail
-          {% else %}
-          show spanning-tree interface
-          {% endif %}
-      register: stp_interfaces
+        commands:
+          - show interfaces trunk
+      register: vlan_trunk
       ignore_errors: true
 
-    - name: Store STP output in variable
+    - name: Get VTP status (if configured)
+      ios_command:
+        commands:
+          - show vtp status
+      register: vtp_status
+      ignore_errors: true
+
+    - name: Store VLAN and VTP output in variable
       set_fact:
         saved_output: |
           =======================================================
           Device: {{ inventory_hostname }}
           Timestamp: {{ lookup('pipe', 'date -u +\"%Y-%m-%d %H:%M:%S UTC\"') }}
-          VLAN Filter: {{ vlan | default('All VLANs') }}
           =======================================================
 
-          === STP Summary ===
-          {% if stp_summary.stdout[0] is defined %}
-          {{ stp_summary.stdout[0] }}
+          === VLAN Brief ===
+          {% if vlan_brief.stdout[0] is defined %}
+          {{ vlan_brief.stdout[0] }}
           {% else %}
           No output received or command failed.
           {% endif %}
 
-          === STP VLAN Info ===
-          {% if stp_vlan.stdout[0] is defined %}
-          {{ stp_vlan.stdout[0] }}
+          === VLAN Summary ===
+          {% if vlan_summary.stdout[0] is defined %}
+          {{ vlan_summary.stdout[0] }}
           {% else %}
           No output received or command failed.
           {% endif %}
 
-          === STP Interfaces ===
-          {% if stp_interfaces.stdout[0] is defined %}
-          {{ stp_interfaces.stdout[0] }}
+          === VLAN Trunk Interfaces ===
+          {% if vlan_trunk.stdout[0] is defined %}
+          {{ vlan_trunk.stdout[0] }}
           {% else %}
           No output received or command failed.
+          {% endif %}
+
+          === VTP Status ===
+          {% if vtp_status.stdout[0] is defined %}
+          {{ vtp_status.stdout[0] }}
+          {% else %}
+          VTP not configured or command not supported.
           {% endif %}
 
           \n
@@ -112,7 +116,7 @@
         state: directory
         mode: '0755'
 
-    - name: Append STP output to single log file
+    - name: Append VLAN and VTP output to single log file
       delegate_to: localhost
       run_once: false
       ansible.builtin.lineinfile:
@@ -121,15 +125,15 @@
         insertafter: EOF
         line: "{{ saved_output }}"
 
-    - name: Display full aggregated STP log
+    - name: Display full aggregated VLAN and VTP log
       delegate_to: localhost
       run_once: true
       ansible.builtin.slurp:
         src: "{{ output_file }}"
       register: final_log
 
-    - name: Print saved STP log contents
+    - name: Print saved VLAN and VTP log contents
       ansible.builtin.debug:
         msg: |
-          =================== Aggregated STP Log ===================
+          =================== Aggregated VLAN & VTP Log ===================
           {{ final_log['content'] | b64decode }}

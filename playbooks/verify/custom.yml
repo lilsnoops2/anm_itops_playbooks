@@ -8,6 +8,7 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
+    command: "{{ command }}"
     # Shared log file (unique per playbook run)
     output_file: "outputs/custom_command_summary_{{ lookup('pipe', 'date +%Y-%m-%d') }}.txt"
 

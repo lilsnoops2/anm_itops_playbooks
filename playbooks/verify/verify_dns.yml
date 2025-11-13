@@ -1,5 +1,5 @@
 ---
-- name: Check configured DNS servers
+- name: Verify DNS configuration on devices
   hosts: all
   gather_facts: no
   connection: network_cli
@@ -8,6 +8,8 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
+    output_file: "outputs/dns_check_summary_{{ lookup('pipe', 'date +%Y-%m-%d') }}.txt"
+    dns_results: {}
 
   pre_tasks:
 
@@ -38,110 +40,141 @@
       set_fact:
         ansible_password: "{{ pass_input.user_input }}"
       when: pass_input is defined and pass_input.user_input is defined
-      
 
   tasks:
-    - name: Check DNS on Cisco IOS / IOS-XE
+
+    - name: Gather DNS info on IOS / IOS-XE
       when: ansible_network_os in ['ios', 'iosxe']
       ios_command:
         commands:
           - show running-config | include ^ip name-server
       register: ios_dns
+      ignore_errors: true
 
-    - name: Store IOS / IOS-XE DNS in results
-      when: ansible_network_os in ['ios', 'iosxe']
-      set_fact:
-        dns_results: "{{ dns_results | combine({ inventory_hostname: ios_dns.stdout[0].split() | select('match','^[0-9]') | list }) }}"
-
-    - name: Check DNS on Cisco IOS-XR
+    - name: Gather DNS info on IOS-XR
       when: ansible_network_os == 'iosxr'
       iosxr_command:
         commands:
           - show running-config | include ^domain name-server
       register: iosxr_dns
+      ignore_errors: true
 
-    - name: Store IOS-XR DNS in results
-      when: ansible_network_os == 'iosxr'
-      set_fact:
-        dns_results: "{{ dns_results | combine({ inventory_hostname: iosxr_dns.stdout[0].split() | select('match','^[0-9]') | list }) }}"
-
-    - name: Check DNS on Cisco ASA
+    - name: Gather DNS info on ASA
       when: ansible_network_os == 'asa'
       asa_command:
         commands:
           - show running-config | include dns
       register: asa_dns
+      ignore_errors: true
 
-    - name: Store ASA DNS in results
-      when: ansible_network_os == 'asa'
-      set_fact:
-        dns_results: "{{ dns_results | combine({ inventory_hostname: asa_dns.stdout[0].split() | select('match','^[0-9]') | list }) }}"
-
-    - name: Check DNS on Cisco FTD
+    - name: Gather DNS info on FTD
       when: ansible_network_os == 'ftd'
       ftd_configuration:
         operation: get
         resource: /api/fdm/latest/fdm/devicesettings/defaultdnsserver
       register: ftd_dns
+      ignore_errors: true
 
-    - name: Store FTD DNS in results
-      when: ansible_network_os == 'ftd'
-      set_fact:
-        dns_results: "{{ dns_results | combine({ inventory_hostname: ftd_dns.json | default([]) }) }}"
-        
-    - name: Obtain FMC token
+    - name: Gather DNS info on FMC
       when: ansible_network_os == 'fmc'
-      uri:
-        url: "https://{{ inventory_hostname }}/api/fmc_platform/v1/auth/ generatetoken"
-        method: POST
-        user: "{{ fmc_username }}"
-        password: "{{ fmc_password }}"
-        force_basic_auth: yes
-        validate_certs: no
-      register: fmc_auth
-      no_log: true
-        
-    - name: Get FMC Domain UUID
-      when: ansible_network_os == 'fmc'
-      uri:
-        url: "https://{{ inventory_hostname }}/api/fmc_config/v1/domain/default"
-        method: GET
-        headers:
-          X-auth-access-token: "{{ fmc_auth.headers['X-auth-access-token'] }}"
-        validate_certs: no
-      register: fmc_domain_info
-    - set_fact:
-        fmc_domain_uuid: "{{ fmc_domain_info.json.id }}"
-        
+      block:
+        - name: Obtain FMC token
+          uri:
+            url: "https://{{ inventory_hostname }}/api/fmc_platform/v1/auth/generatetoken"
+            method: POST
+            user: "{{ fmc_username }}"
+            password: "{{ fmc_password }}"
+            force_basic_auth: yes
+            validate_certs: no
+          register: fmc_auth
+          no_log: true
 
-    - name: Check DNS on FMC
-      when: ansible_network_os == 'fmc'
-      uri:
-        url: "https://{{ inventory_hostname }}/api/fmc_config/v1/domain/{{ fmc_domain_uuid }}/devicehapolicies/defaultdnsserver"
-        method: GET
-        headers:
-          X-auth-access-token: "{{ fmc_auth_token }}"
-        validate_certs: no
-      register: fmc_dns
+        - name: Get FMC Domain UUID
+          uri:
+            url: "https://{{ inventory_hostname }}/api/fmc_config/v1/domain/default"
+            method: GET
+            headers:
+              X-auth-access-token: "{{ fmc_auth.headers['X-auth-access-token'] }}"
+            validate_certs: no
+          register: fmc_domain_info
 
-    - name: Store FMC DNS in results
-      when: ansible_network_os == 'fmc'
-      set_fact:
-        dns_results: "{{ dns_results | combine({ inventory_hostname: fmc_dns.json | default([]) }) }}"
+        - set_fact:
+            fmc_domain_uuid: "{{ fmc_domain_info.json.id }}"
 
-    - name: Check DNS on Palo Alto (PAN-OS)
+        - name: Get FMC DNS servers
+          uri:
+            url: "https://{{ inventory_hostname }}/api/fmc_config/v1/domain/{{ fmc_domain_uuid }}/devicehapolicies/defaultdnsserver"
+            method: GET
+            headers:
+              X-auth-access-token: "{{ fmc_auth.headers['X-auth-access-token'] }}"
+            validate_certs: no
+          register: fmc_dns
+
+    - name: Gather DNS info on PAN-OS
       when: ansible_network_os == 'panos'
       paloaltonetworks.panos.panos_op:
         cmd: 'show dns-proxy statistics'
       register: pan_dns
+      ignore_errors: true
 
-    - name: Store PAN-OS DNS in results
-      when: ansible_network_os == 'panos'
+    - name: Collect all DNS results into a single variable
       set_fact:
-        dns_results: "{{ dns_results | combine({ inventory_hostname: pan_dns.stdout | default([]) }) }}"
+        dns_results: >-
+          {{
+            dns_results | combine({
+              inventory_hostname: (
+                ios_dns.stdout[0] if ios_dns is defined else
+                iosxr_dns.stdout[0] if iosxr_dns is defined else
+                asa_dns.stdout[0] if asa_dns is defined else
+                ftd_dns.json if ftd_dns is defined else
+                fmc_dns.json if fmc_dns is defined else
+                pan_dns.stdout if pan_dns is defined else
+                ['No DNS info found or command failed']
+              )
+            })
+          }}
 
-    - name: Display all DNS results at the end
-      run_once: true
+    - name: Store DNS output in saved_output variable
+      set_fact:
+        saved_output: |
+          =======================================================
+          Device: {{ inventory_hostname }}
+          Timestamp: {{ lookup('pipe', 'date -u +\"%Y-%m-%d %H:%M:%S UTC\"') }}
+          =======================================================
+          DNS Servers:
+          {% if dns_results[inventory_hostname] is defined %}
+          {{ dns_results[inventory_hostname] }}
+          {% else %}
+          No DNS info found or command failed.
+          {% endif %}
+          \n
+
+    - name: Ensure output directory exists
       delegate_to: localhost
-      debug:
-        msg: "{{ dns_results }}"
+      run_once: true
+      ansible.builtin.file:
+        path: "outputs"
+        state: directory
+        mode: '0755'
+
+    - name: Append DNS output to single log file
+      delegate_to: localhost
+      run_once: false
+      ansible.builtin.lineinfile:
+        path: "{{ output_file }}"
+        create: yes
+        insertafter: EOF
+        line: "{{ saved_output }}"
+
+    - name: Display full aggregated DNS log
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.slurp:
+        src: "{{ output_file }}"
+      register: final_log
+
+    - name: Print saved DNS log contents
+      ansible.builtin.debug:
+        msg: |
+          =================== Aggregated DNS Log ===================
+          {{ final_log['content'] | b64decode }}
