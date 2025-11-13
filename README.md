@@ -313,6 +313,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 -------------------------------------------------
 <details>
 <summary>Upgrades</summary>
+
 ### Upgrades
 
 - 
@@ -547,7 +548,8 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   ```
 
 
-  #### Troubleshooting
+  **Troubleshooting** 
+
   Troubleshooting can be categorized based on which task was failed for a device. For any failed device, I would create a list of failed devices, fix the issues, then run the script again for those devices.
   * HTTP server check failure: Ensure that the http server is operational and working. If using IIS, make sure you can reach it successfully yourself by navigating to http://1.1.1.1/http, you should see the files listed on the browser if successful.
   * Disk Space Failure: Log into the device and clean up the disk space. This can be done manually or using the disk_clean_up playbook for the hosts that failed the disk space check i.e -e 'target_hosts=switch4,router1'
@@ -597,7 +599,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 
   ```
 
-  #### Troubleshooting
+  **Troubleshooting**
 
   </details>
 -------------------------------------------------
@@ -666,19 +668,19 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 <details>
 <summary>Configure</summary>
 
-## Configure
+### Configure
 
 - 
   <details>
   <summary>AAA</summary>
 
-  ### AAA
+  #### AAA
 
   - 
     <details>
     <summary>tacacs</summary>
 
-    #### `tacacs`
+    ##### `tacacs`
     This playbook will dynamically configure TACACS on devices based on the servers configured in aaa-servers.yml.
 
     **Summary/Overview of tasks:**  
@@ -732,7 +734,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>radius</summary>
 
-    #### `radius`
+    ##### `radius`
     This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.
 
     **Summary/Overview of tasks:**  
@@ -791,7 +793,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>coa_config</summary>
 
-    #### `coa_config`
+    ##### `coa_config`
     This playbook will add CoA config to a device based on the servers configured in aaa-servers.yml. This playbook should only be used when radius config is already present on devices.
 
     **Summary/Overview of tasks:**  
@@ -823,7 +825,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>automate_tester</summary>
 
-    #### `automate_tester`
+    ##### `automate_tester`
     This playbook will add the automate-tester config to a device. 
 
     **Summary/Overview of tasks:**  
@@ -854,7 +856,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <details>
     <summary>set_radius_global_settings</summary>
 
-    #### `set_radius_global_settings`
+    ##### `set_radius_global_settings`
     This playbook will add global radius settings:
 
     ```
@@ -889,7 +891,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
     <summary>Services</summary>
 
-  ### Services
+  #### Services
     - 
       <details>
       <summary>dns</summary>
@@ -934,12 +936,13 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   <details>
     <summary>SNMP</summary>
 
-  ### SNMP
+  #### SNMP
 
     - 
       <details>
       <summary>v2c</summary>
-      #### `v2c`
+
+      ##### `v2c`
         This playbook configures SNMP v2c with provided community string. AN ACL named "anm-ms-snmp-acl-std" is created/updated and applied to only allow snmp from the IPs specified in `./vars/jumpboxes.yml`. If jumpboxes.yml does not exist, you can copy jumpboxes-sample.yml and rename to jumpboxes.yml. You can then set the IPs for the jumpboxes like so:
 
         ```yaml
@@ -973,7 +976,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
       <details>
       <summary>v3</summary>
 
-      #### `v3`
+      ##### `v3`
         This playbook configures SNMP v3 with provided auth/priv variables. AN ACL named "anm-ms-snmp-acl-std" is created/updated and applied to only allow snmp from the IPs specified in `./vars/jumpboxes.yml`. If jumpboxes.yml does not exist, you can copy jumpboxes-sample.yml and rename to jumpboxes.yml. You can then set the IPs for the jumpboxes like so:
 
         ```yaml
@@ -1574,7 +1577,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 <details>
 <summary>Onboarding</summary>
 
-## Onboarding
+### Onboarding
 
 </details>
 -------------------------------------------------
