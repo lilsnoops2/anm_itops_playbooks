@@ -14,10 +14,9 @@ This is a collection of playbooks for ANM ITOps automation
       - [**AAA**](#aaa): `tacacs`, `radius`, `coa_config`, `automate_tester`, `set_radius_global_settings`
       - [**Services:**](#services) `dns`, `igmp_snooping`, `ip_sla`, `logging`, `netflow`, `ntp`, `qos`
       - [**SNMP:**](#snmp) `v2c`, `v3`
-    - [**Verify:**](#verify) `custom`, `verify_clock`, `verify_dns`, `verify_license`, `verify_spanning_tree`, `verify_vlans`
-    - [**Onboarding**](#onboarding)
+    - [**Verify:**](#verify) `cred_validation`,`custom`, `device_discovery`, `verify_clock`, `verify_dns`, `verify_license`, `verify_spanning_tree`, `verify_vlans`
   - [**Scripts**](#scripts): `iis.ps1`, `excel_to_mputty_xml.py`
-  - [**Procedures**](#procedures): `Upgrade Prestage`, `Configure AAA TACACS`, `Configure AAA RADIUS`
+  - [**Procedures**](#procedures): `Upgrade Prestage`, `Configure AAA TACACS`, `Configure AAA RADIUS`, `Onboarding`
 
 ## Setup
 ### General Setup
@@ -1021,6 +1020,116 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 
 - 
   <details>
+  <summary>cred_validation</summary>
+
+  #### `cred_validation`
+
+    Playbook verifies specified credentials for the splunk inventory. Used for already onboarded client devices.
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE
+    * IOS XR
+    * NXOS
+    * ASA
+    * FMC/FTD
+    * Palo Alto
+
+
+    **Variables** 
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Examples**  
+
+    Validates credential supplied on all switches using inline -e (RECOMMENDED)
+
+    ```bash 
+    ansible-playbook playbooks/verify/cred_validation.yml \
+      -e '{"credential_sets":[
+            {"name":"set1","username":"admin","password":"pass123"},
+            {"name":"set2","username":"ops","password":"Cisco123"},
+            {"name":"set3","username":"readonly","password":"readonly1"}
+          ]}'
+    ```
+
+    Validates credential supplied on all switches using the creds.yml (NOT RECOMMENDED)
+
+    ```bash 
+    ansible-playbook playbooks/verify/cred_validation.yml -e @/vars/creds.yml
+
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    PLAY [Validate credentials] ************************************************************
+
+    TASK [Validate credential set 1 on R1] ************************************************
+    ok: [R1] => {
+        "msg": "Credential set #1 (admin) SUCCESS"
+    }
+
+    TASK [Validate credential set 2 on R1] ************************************************
+    failed: [R1] => {
+        "msg": "Credential set #2 (netops) FAILED"
+    }
+
+    TASK [Validate credential set 1 on R2] ************************************************
+    failed: [R2] => {
+        "msg": "Credential set #1 (admin) FAILED"
+    }
+
+    TASK [Validate credential set 2 on R2] ************************************************
+    ok: [R2] => {
+        "msg": "Credential set #2 (netops) SUCCESS"
+    }
+
+    TASK [Validate credential set 1 on FW1] ***********************************************
+    failed: [FW1] => {
+        "msg": "Credential set #1 (admin) FAILED"
+    }
+
+    TASK [Validate credential set 2 on FW1] ***********************************************
+    ok: [FW1] => {
+        "msg": "Credential set #2 (netops) SUCCESS"
+    }
+
+
+    TASK [Write combined results to file] *************************************************
+    changed: [localhost]
+
+    TASK [Display final results] **********************************************************
+    ok: [localhost] => {
+        "msg": [
+            "R1: SUCCESS using credential set #1 (admin)",
+            "R2: SUCCESS using credential set #2 (netops)",
+            "FW1: SUCCESS using credential set #2 (netops)"
+        ]
+    }
+
+    PLAY RECAP ****************************************************************************
+    R1                        : ok=4    changed=0    failed=0
+    R2                        : ok=4    changed=0    failed=0
+    FW1                       : ok=4    changed=0    failed=0
+    localhost                 : ok=2    changed=1    failed=0
+
+
+    ```
+
+  **Example File Output**
+  ```yaml 
+
+  ``` 
+
+  </details>
+
+
+- 
+  <details>
   <summary>custom</summary>
 
   #### `custom`
@@ -1096,6 +1205,154 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
   Loopback0              192.168.2.2     YES manual up                    up
 
   ``` 
+
+  </details>
+
+- 
+  <details>
+  <summary>device_discovery</summary>
+
+  #### `device_discovery`
+
+    This playbook performs automatic network device discovery in environments where the device OS is unknown. It attempts to connect to each host using the supported Ansible modules for IOS, IOS-XE, IOS-XR, NXOS, ASA, FMC/FTD, and Palo Alto (PAN-OS) devices.
+
+    It gathers structured information including:
+      - Hostname
+      - Model
+      - IOS type (if applicable)
+      - Serial number
+      - Stack serials (for IOS stacks)
+      - Current OS version
+      - Device mode (install or bundle)
+      - Flash directory (if applicable)
+      - Interfaces
+      - Neighbors (if applicable)
+
+    **Supported OS:**  
+    * IOS 
+    * IOS XE
+    * IOS XR
+    * NXOS
+    * ASA
+    * FMC/FTD
+    * Palo Alto
+
+
+    **Variables** 
+    Make sure to pass in the inventory file with the devices to be discovered
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Examples**  
+
+    Device discovery with a simple inventory.
+
+    ```bash 
+    ansible-playbook playbooks/verify/cred_validation.yml -i '/vars/inventory.yml'
+
+    ```
+
+    **Example CLI Output**  
+
+    ```bash
+    TASK [Display discovered info per device] ************************************
+    ok: [R1] => {
+        "msg": {
+            "hostname": "R1",
+            "model": "ISR4331/K9",
+            "ios_type": "XE",
+            "serial": "FTX12345678",
+            "stack_serials": [
+                "FTX12345678",
+                "FTX87654321"
+            ],
+            "current_ver": "17.6.3",
+            "device_mode": "install",
+            "flash_dir": "flash:",
+            "neighbors": {
+                "GigabitEthernet0/0": {
+                    "neighbor": "SW1"
+                }
+            },
+            "interfaces": {
+                "GigabitEthernet0/0": {
+                    "ip": "10.10.10.1/24",
+                    "status": "up"
+                },
+                "GigabitEthernet0/1": {
+                    "ip": "10.10.20.1/24",
+                    "status": "down"
+                }
+            }
+        }
+    }
+
+    ok: [SW1] => {
+        "msg": {
+            "hostname": "SW1",
+            "model": "Nexus9000 C9396PX",
+            "ios_type": "NX-OS",
+            "serial": "N9K12345678",
+            "stack_serials": [],
+            "current_ver": "9.3(5)",
+            "device_mode": "bundle",
+            "flash_dir": "bootflash:",
+            "neighbors": {
+                "Ethernet1/1": {
+                    "neighbor": "R1"
+                }
+            },
+            "interfaces": {
+                "Ethernet1/1": {
+                    "ip": "10.10.10.2/24",
+                    "status": "up"
+                }
+            }
+        }
+    }
+
+    ok: [ASA1] => {
+        "msg": {
+            "hostname": "ASA1",
+            "model": "ASA5506-K9",
+            "ios_type": "",
+            "serial": "JAD12345678",
+            "stack_serials": [],
+            "current_ver": "9.12(4)",
+            "device_mode": "install",
+            "flash_dir": "disk0:",
+            "neighbors": {},
+            "interfaces": {
+                "GigabitEthernet0/0": {
+                    "ip": "192.168.1.1/24",
+                    "status": "up"
+                }
+            }
+        }
+    }
+
+    ok: [PA1] => {
+        "msg": {
+            "hostname": "PA1",
+            "model": "PA-5220",
+            "ios_type": "",
+            "serial": "007123456",
+            "stack_serials": [],
+            "current_ver": "10.1.2",
+            "device_mode": "",
+            "flash_dir": "",
+            "neighbors": {},
+            "interfaces": {
+                "ethernet1/1": {
+                    "ip": "10.1.1.1/24",
+                    "status": "up"
+                }
+            }
+        }
+    }
+
+    ```
 
   </details>
 
@@ -1625,9 +1882,9 @@ This is python script that can use the inventory.xlsx to create an importable mp
 
 ## Procedures:
 <details>
-<summary>Upgrade Prestage</summary>
+<summary>Upgrades</summary>
   
-### Upgrade Prestage:
+### Upgrades
 **1. Determine Platform Series:** First determine what platform series are available, this list will be used to download the images from Cisco
 * Run the [`get_platform_series`](#get_platform_series) playbook for example: (Review section for this playbook for further options or more details)
 ```bash
@@ -1762,5 +2019,41 @@ ansible-playbook playbooks/configuration/aaa/radius.yml -l 'switch' -e 'organiza
 ```
 ansible-playbook playbooks/configuration/aaa/radius.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
 ```
+</details>
+-------------------------------------------------
+<details>
+<summary>Configure AAA TACACS</summary>
+  
+### Onboarding
+
+**1. Create inventory file:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/verify/vars`
+* Duplicate file named onboard-sample.yml and rename to onboard.yml
+* Follow the format in the sample to fill out the hostnames and IPs
+* multiple devices can be added by copying from R1 and pasting under ansible_host, for example:
+
+```yaml
+all:
+  hosts:
+    R1:
+      ansible_host: 10.10.1.1
+    SW1:
+      ansible_host: 10.10.1.2
+    ASA1:
+      ansible_host: 10.10.1.3
+    FTD1:
+      ansible_host: 10.10.1.4
+    PA1:
+      ansible_host: 10.10.1.5
+```
+
+**2. Run device_discovery playbook:**   
+* Run [`device_discovery`] playbook to run through devices and obtain information, use -i to pass the newly created onboard.yml inventory file, for example:  (Review section for this playbook for further options or more details)
+
+```bash
+ansible-playbook playbooks/verify/device_discovery.yml -i '/opt/ansible_local/anm_itops_playbooks/playbooks/verify/vars/onboard.yml' -e 'ansible_user=user' -e 'ansible_password=password'
+```
+
+**3. Configure SNMP using v2c or v3**  (Review section for this playbook for further options or more details)
+
 </details>
 

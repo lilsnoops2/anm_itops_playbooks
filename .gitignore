@@ -7,6 +7,7 @@ jumpboxes.yml
 dnsservers.yml
 aaa-servers.yml
 upgrade_commands.yml
+creds.yml
 *.xlsx
 *vault*
 *.pem
