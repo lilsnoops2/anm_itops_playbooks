@@ -682,7 +682,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     **Summary/Overview of tasks:**  
     * Configures AAA new-model if not configured - required for devices that are newly being configured
     * Grabs any current TACACS related configuration
-    * Configures Specified tacacs servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
+    * Configures Specified tacacs servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
     * Configures TACACS group with the organization_prefix + TACACS, example: ANM-TACACS. Places the configured TACACS servers in the group
     * Configures method lists with organization_prefix and the newly created TACACS group For example:
     ```bash
@@ -717,7 +717,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     **Examples**   
     Configures TACACS on a single device. 
     ```bash
-    ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
+    ansible-playbook playbooks/config/aaa/tacacs.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
     ```
 
     Output:
@@ -736,7 +736,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     **Summary/Overview of tasks:**  
     * Configures AAA new-model if not configured - required for devices that are newly being configured
     * Grabs any current RADIUS related configuration
-    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
     * Configures RADIUS group with the organization_prefix + RADIUS, example: ANM-RADIUS. Places the configured RADIUS servers in the group
     * Configures method lists with organization_prefix and the newly created TACACS group For example:
     ```bash
@@ -776,7 +776,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     **Examples**   
     Configures RADIUS on a single device. 
     ```bash
-    ansible-playbook playbooks/configuration/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
+    ansible-playbook playbooks/config/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
     ```
 
     Output:
@@ -794,7 +794,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 
     **Summary/Overview of tasks:**  
     * Grabs any current RADIUS related configuration
-    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the devices config, otherwise the provided key will be used.
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the devices config, otherwise the provided key will be used.
     * Shows output after configuring
 
     **Supported OS:**  
@@ -812,7 +812,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     **Examples**   
     Configures coA on a single device. 
     ```bash
-    ansible-playbook playbooks/configuration/aaa/coa_config.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
+    ansible-playbook playbooks/config/aaa/coa_config.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
     ```
     </details>
   -------------------------------------------------
@@ -826,7 +826,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 
     **Summary/Overview of tasks:**  
     * Grabs any current RADIUS related configuration
-    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` with automate tester - Ensure to update aaa-servers.yml before attempting to run the playbook.
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` with automate tester - Ensure to update aaa-servers.yml before attempting to run the playbook.
     * Shows output after configuring
 
     **Supported OS:**  
@@ -843,7 +843,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     **Examples**   
     Configures automate-tester on a single device. 
     ```bash
-    ansible-playbook playbooks/configuration/aaa/automate_tester.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password'
+    ansible-playbook playbooks/config/aaa/automate_tester.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password'
     ```
     </details>
   -------------------------------------------------
@@ -879,7 +879,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     **Examples**   
     Configures global settings on a single device. 
     ```bash
-    ansible-playbook playbooks/configuration/aaa/set_radius_global_settings.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'timeout=5' -e 'deadtime=3' -e 'retries=4'
+    ansible-playbook playbooks/config/aaa/set_radius_global_settings.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'timeout=5' -e 'deadtime=3' -e 'retries=4'
     ```
     </details>
   -------------------------------------------------
@@ -963,7 +963,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
         **Examples**   
         Configures global settings on a single device. 
         ```bash
-        ansible-playbook playbooks/configuration/snmp/v2c.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'community=snmpstring'
+        ansible-playbook playbooks/config/snmp/v2c.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'community=snmpstring'
         ```
 
       </details>
@@ -1003,7 +1003,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
         **Examples**   
         Configures SNMP v3 on a single device. 
         ```bash
-        ansible-playbook playbooks/configuration/snmp/v3.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'snmp_user=anm' -e 'auth_proto=sha' -e 'auth_pass=password' -e 'priv_proto=aes' -e 'priv_pass=password' -e 'group=ROGROUP'
+        ansible-playbook playbooks/config/snmp/v3.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'snmp_user=anm' -e 'auth_proto=sha' -e 'auth_pass=password' -e 'priv_proto=aes' -e 'priv_pass=password' -e 'group=ROGROUP'
         ```
 
       </details>
@@ -1824,15 +1824,6 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
 </details>
 -------------------------------------------------
 
-### Onboarding
-
-<details>
-<summary>View Onboarding playbooks</summary>
-
-
-</details>
--------------------------------------------------
-
 
 ## Scripts
 
@@ -1953,7 +1944,7 @@ ansible-playbook playbooks/upgrades/prestage-ios_iosxe.yml -l 'sw1,rtr02' -e 'an
 <summary>Configure AAA TACACS</summary>
   
 ### Configure AAA TACACS
-**1. Update aaa-servers.yml:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml`
+**1. Update aaa-servers.yml:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml`
 * If aaa-servers.yml is not in the folder, you can copy aaa-servers-sample.yml, and rename it to aaa-server.yml. Open the file in Visual Studio
 * Fill in the info for the TACACS servers under the `tacacs_servers` block. The only required information to fill out is name: and address:
 * multiple servers can be added by copying from -name and pasting under port:, for example:
@@ -1973,22 +1964,22 @@ tacacs_servers:
 **2. Run TACACS playbook:**   
 * Run [`tacacs`](#tacacs) playbook to run through devices and configure the specified tacacs servers, for example:  (Review section for this playbook for further options or more details)
 ```
-ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
+ansible-playbook playbooks/config/aaa/tacacs.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
 ```
  * Be aware that this playbook is meant to be a sort of source of truth. The script will always ensure that **ONLY** the servers in the aaa-servers list are configured.
 
 **To remove servers:**   
-* Servers can be removed by updating `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` then rerunning the playbook
+* Servers can be removed by updating `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` then rerunning the playbook
 ```
-ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
+ansible-playbook playbooks/config/aaa/tacacs.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
 ```
 </details>
 -------------------------------------------------
 <details>
-<summary>Configure AAA TACACS</summary>
+<summary>Configure AAA RADIUS</summary>
   
 ### Configure AAA RADIUS
-**1. Update aaa-servers.yml:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml`
+**1. Update aaa-servers.yml:** Navigate to `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml`
 * If aaa-servers.yml is not in the folder, you can copy aaa-servers-sample.yml, and rename it to aaa-server.yml. Open the file in Visual Studio
 * Fill in the info for the TACACS servers under the `radius_servers` block. The only required information to fill out is name: and address:
 * multiple servers can be added by copying from -name and pasting under port:, for example:
@@ -2010,14 +2001,14 @@ radius_servers:
 **2. Run RADIUS playbook:**   
 * Run [`radius`](#radius) playbook to run through devices and configure the specified tacacs servers, for example:  (Review section for this playbook for further options or more details)
 ```
-ansible-playbook playbooks/configuration/aaa/radius.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
+ansible-playbook playbooks/config/aaa/radius.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
 ```
  * Be aware that this playbook is meant to be a sort of source of truth. The script will always ensure that **ONLY** the servers in the aaa-servers list are configured.
 
 **To remove servers:**   
-* Servers can be removed by updating `/opt/ansible_local/anm_itops_playbooks/playbooks/configuration/aaa/vars/aaa-servers.yml` then rerunning the playbook
+* Servers can be removed by updating `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` then rerunning the playbook
 ```
-ansible-playbook playbooks/configuration/aaa/radius.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
+ansible-playbook playbooks/config/aaa/radius.yml -l 'switch' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=tacacs123'
 ```
 </details>
 -------------------------------------------------
