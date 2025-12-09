@@ -731,7 +731,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <summary>radius</summary>
 
     ##### `radius`
-    This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.
+    This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml. When no optional variables are used, the script configured RADIUS for use with dot1x/mab (network access) only. Special care must be taken when a client has both radius and tacacs available. Use the optional variables to configure login (device administration) using the same radius servers when not using tacacs for device administration. In environments with both protocols available, run this script to configure network access (dot1x/mab), then run tacacs script to configure device administration.
 
     **Summary/Overview of tasks:**  
     * Configures AAA new-model if not configured - required for devices that are newly being configured
@@ -772,6 +772,10 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
     - `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
     - `config_tester` (optional): Set to 'yes' to also configure automate tester for the configured radius servers. Defaults to 'no'.
+    - `config_login` (optional): Set to 'yes' to configure login and mab/dot1x. Defaults to 'no'.
+    - `login_only` (optional): Set to 'yes' to ato only configure login. Defaults to 'no'.
+    - `group_name` (optional): Override the default radius group name to use a specific name instead of the one built using the organization_prefix var
+
 
     **Examples**   
     Configures RADIUS on a single device. 

@@ -21,6 +21,8 @@
     retries: "{{ retries | default(3) }}"
     config_coa: "{{ config_coa | default('no') }}"
     config_tester: "{{ config_coa | default('no') }}"
+    config_login: "{{ config_login | default('no') }}"
+    login_only: "{{ login_only | default('no') }}"
 
 
   pre_tasks:
@@ -77,7 +79,7 @@
 
     - name: Update naming convention variables
       set_fact:
-        radius_group_name: "{{ organization_prefix }}-radius"
+        radius_group_name: "{{ group_name | default(organization_prefix ~ '-radius') }}"
         auth_method_list: "{{ organization_prefix }}-authc-radius"
         authz_method_list: "{{ organization_prefix }}-authz-radius"
 
@@ -202,7 +204,27 @@
     ##########################################################
     # 4. Enforce AAA baseline configuration
     ##########################################################
-    - name: Enforce AAA authentication/authorization/accounting
+    - name: Enforce AAA authentication/authorization/accounting (dot1x/mab/login)
+      ios_config:
+        lines:
+          - "aaa authentication dot1x default group {{ radius_group_name }}"
+          - "aaa authorization network default group {{ radius_group_name }}"
+          - "aaa authentication login {{ auth_method_list }} group {{ radius_group_name }} local enable"
+          - "aaa authentication enable default group {{ radius_group_name }} enable"
+          - "aaa authorization exec {{ authz_method_list }} group {{ radius_group_name }} local if-authenticated"
+          - "aaa accounting commands 1 default start-stop group {{ radius_group_name }}"
+          - "aaa accounting commands 15 default start-stop group {{ radius_group_name }}"
+          - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
+          - "radius-server retransmit {{ retries }}"
+          - "radius-server timeout {{ timeout }}"
+          - "radius-server deadtime{{ deadtime }}"
+        match: line
+      when: 
+       - ansible_network_os in ['ios', 'iosxe']
+       - config_login == "yes"
+
+
+    - name: Enforce AAA authentication/authorization/accounting (login only)
       ios_config:
         lines:
           - "aaa authentication login {{ auth_method_list }} group {{ radius_group_name }} local enable"
@@ -215,7 +237,22 @@
           - "radius-server timeout {{ timeout }}"
           - "radius-server deadtime{{ deadtime }}"
         match: line
-      when: ansible_network_os in ['ios', 'iosxe']
+      when: 
+       - ansible_network_os in ['ios', 'iosxe']
+       - login_only == "yes"
+
+    - name: Enforce AAA authentication/authorization/accounting (dot1x/mab only)
+      ios_config:
+        lines:
+          - "aaa authentication dot1x default group {{ radius_group_name }}"
+          - "aaa authorization network default group {{ radius_group_name }}"
+          - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
+          - "radius-server retransmit {{ retries }}"
+          - "radius-server timeout {{ timeout }}"
+          - "radius-server deadtime{{ deadtime }}"
+        match: line
+      when: 
+       - ansible_network_os in ['ios', 'iosxe']
 
     ##########################################################
     # 5. Configure VTY line authentication
@@ -225,12 +262,16 @@
         commands:
           - "show running-config | section line vty"
       register: vty_lines_output
-      when: ansible_network_os in ['ios', 'iosxe']
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+        - login_only == "yes" or config_login == "yes"
 
     - name: Parse VTY line ranges (e.g., 0 4, 5 15, 0 31)
       set_fact:
         vty_groups: "{{ vty_lines_output.stdout[0] | regex_findall('line vty (\\d+)\\s+(\\d+)') | map('map', 'int') | list }}"
-      when: ansible_network_os in ['ios', 'iosxe']
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+        - login_only == "yes" or config_login == "yes"
 
     - name: Configure VTY line login and authorization ranges
       ios_config:
@@ -242,9 +283,9 @@
       loop: "{{ vty_groups }}"
       loop_control:
         label: "VTY {{ item.0 }}-{{ item.1 }}"
-      when:
+      when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - vty_groups | length > 0
+        - login_only == "yes" or config_login == "yes"
 
 
     ##########################################################
