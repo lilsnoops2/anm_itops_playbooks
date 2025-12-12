@@ -96,6 +96,7 @@
         lines:
           - "aaa new-model"
         save_when: modified
+        match: exact
       when: ansible_network_os in ['ios', 'iosxe']
 
 
