@@ -713,6 +713,8 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
     - `organization_prefix` (required): Prefix that will be appended to the TACACS group and AAA method lists
     - `tacacs_key` (required): The PSK used for the TACACS server
+    - `group_name` (optional): Override the default tacacs group name to use a specific name instead of the one built using the organization_prefix var
+
 
     **Examples**   
     Configures TACACS on a single device. 
