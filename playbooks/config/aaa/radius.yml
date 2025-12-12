@@ -205,7 +205,7 @@
     - name: Set RADIUS Access request AVP
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_avp == "yes"
+        - config_avp == 'yes'
       ios_config:
         lines:
           - "radius-server attribute 6 on-for-login-auth"
@@ -220,7 +220,7 @@
     - name: Enable Device Sensor
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_device_sensor == "yes"
+        - config_device_sensor == 'yes'
       ios_config:
         lines:
           - "device-sensor notify all-changes"
@@ -244,7 +244,7 @@
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - load_balance == "no"
+       - load_balance == 'no'
 
     - name: Enforce AAA global settings (load-balance)
       ios_config:
