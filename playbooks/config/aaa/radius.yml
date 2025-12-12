@@ -140,6 +140,7 @@
           loop: "{{ config_lines }}"
           loop_control:
             loop_var: line
+          no_log: true
 
     - name: Build list of currently configured radius IPs
       set_fact:
@@ -158,6 +159,7 @@
       loop: "{{ radius_servers }}"
       loop_control:
         loop_var: server
+      no_log: true
 
     - name: Add or update RADIUS servers (reuse existing key if present)
       ios_config:
