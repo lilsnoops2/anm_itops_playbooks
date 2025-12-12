@@ -16,15 +16,15 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
-    _deadtime: "{{ deadtime | default(10) }}"
+    #deadtime: "{{ deadtime | default(10) }}"
     #_timeout: "{{ timeout | default(3) }}"
     #_retries: "{{ retries | default(3) }}"
-    config_coa: "no"
-    config_tester: "no"
-    config_avp: "no"
-    config_device_sensor: "no"
-    config_login: "no"
-    login_only: "no"
+    # config_coa: "no"
+    # config_tester: "no"
+    # config_avp: "no"
+    # config_device_sensor: "no"
+    # config_login: "no"
+    # login_only: "no"
 
 
   pre_tasks:
@@ -243,7 +243,7 @@
           - "radius-server dead-criteria time {{ timeout | default(3) }} tries {{ retries | default(3) }}"
           - "radius-server retransmit {{ retries | default(3) }}"
           - "radius-server timeout {{ timeout | default(3) }}"
-          - "radius-server deadtime{{ _deadtime }}"
+          - "radius-server deadtime{{ deadtime | default(10) }}"
           - "no radius-server load-balance method least-outstanding"
         match: line
       ignore_errors: true
@@ -257,7 +257,7 @@
           - "radius-server dead-criteria time {{ timeout | default(3) }} tries {{ retries | default(3) }}"
           - "radius-server retransmit {{ retries | default(3) }}"
           - "radius-server timeout {{ timeout | default(3) }}"
-          - "radius-server deadtime{{ _deadtime }}"
+          - "radius-server deadtime{{ deadtime | default(10) }}"
           - "radius-server load-balance method least-outstanding"
         match: line
       ignore_errors: true
