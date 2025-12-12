@@ -16,15 +16,15 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
-    deadtime: "{{ deadtime | default(10) }}"
-    timeout: "{{ timeout | default(3) }}"
-    retries: "{{ retries | default(3) }}"
-    config_coa: "{{ config_coa | default('no') }}"
-    config_tester: "{{ config_coa | default('no') }}"
-    config_avp: "{{ config_avp | default('no') }}"
-    config_device_sensor: "{{ config_device_sensor | default('no') }}"
-    config_login: "{{ config_login | default('no') }}"
-    login_only: "{{ login_only | default('no') }}"
+    _deadtime: "{{ deadtime | default(10) }}"
+    _timeout: "{{ timeout | default(3) }}"
+    _retries: "{{ retries | default(3) }}"
+    _config_coa: "{{ config_coa | default('no') }}"
+    _config_tester: "{{ config_tester | default('no') }}"
+    _config_avp: "{{ config_avp | default('no') }}"
+    _config_device_sensor: "{{ config_device_sensor | default('no') }}"
+    _config_login: "{{ config_login | default('no') }}"
+    _login_only: "{{ login_only | default('no') }}"
 
 
   pre_tasks:
@@ -186,7 +186,7 @@
     - name: Add automate-tester line under each RADIUS server
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_tester == 'yes'
+        - _config_tester == 'yes'
       ios_config:
         lines:
           - "automate-tester username radius-test idle-time 10"
@@ -197,7 +197,7 @@
       no_log: true
 
     - name: Add or update COA servers
-      when: config_coa == "yes"
+      when: _config_coa == "yes"
       ios_config:
         parents: "aaa server radius dynamic-author"
         lines:
@@ -210,7 +210,7 @@
     - name: Set RADIUS Access request AVP
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_avp == 'yes'
+        - _config_avp == 'yes'
       ios_config:
         lines:
           - "radius-server attribute 6 on-for-login-auth"
@@ -225,7 +225,7 @@
     - name: Enable Device Sensor
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_device_sensor == 'yes'
+        - _config_device_sensor == 'yes'
       ios_config:
         lines:
           - "device-sensor notify all-changes"
@@ -240,10 +240,10 @@
     - name: Enforce AAA global settings (no load-balance)
       ios_config:
         lines:
-          - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
-          - "radius-server retransmit {{ retries }}"
-          - "radius-server timeout {{ timeout }}"
-          - "radius-server deadtime{{ deadtime }}"
+          - "radius-server dead-criteria time {{ _timeout }} tries {{ _retries }}"
+          - "radius-server retransmit {{ _retries }}"
+          - "radius-server timeout {{ _timeout }}"
+          - "radius-server deadtime{{ _deadtime }}"
           - "no radius-server load-balance method least-outstanding"
         match: line
       ignore_errors: true
@@ -254,10 +254,10 @@
     - name: Enforce AAA global settings (load-balance)
       ios_config:
         lines:
-          - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
-          - "radius-server retransmit {{ retries }}"
-          - "radius-server timeout {{ timeout }}"
-          - "radius-server deadtime{{ deadtime }}"
+          - "radius-server dead-criteria time {{ _timeout }} tries {{ _retries }}"
+          - "radius-server retransmit {{ _retries }}"
+          - "radius-server timeout {{ _timeout }}"
+          - "radius-server deadtime{{ _deadtime }}"
           - "radius-server load-balance method least-outstanding"
         match: line
       ignore_errors: true
@@ -284,7 +284,7 @@
         match: line
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - config_login == "yes"
+       - _config_login == "yes"
 
 
     - name: Enforce AAA authentication/authorization/accounting (login only)
@@ -299,7 +299,7 @@
         match: line
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - login_only == "yes"
+       - _login_only == "yes"
 
     - name: Enforce AAA authentication/authorization/accounting (dot1x/mab only)
       ios_config:
@@ -325,14 +325,14 @@
       register: vty_lines_output
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_only == "yes" or config_login == "yes"
+        - _login_only == "yes" or _config_login == "yes"
 
     - name: Parse VTY line ranges (e.g., 0 4, 5 15, 0 31)
       set_fact:
         vty_groups: "{{ vty_lines_output.stdout[0] | regex_findall('line vty (\\d+)\\s+(\\d+)') | map('map', 'int') | list }}"
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_only == "yes" or config_login == "yes"
+        - _login_only == "yes" or _config_login == "yes"
 
     - name: Configure VTY line login and authorization ranges
       ios_config:
@@ -346,7 +346,7 @@
         label: "VTY {{ item.0 }}-{{ item.1 }}"
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_only == "yes" or config_login == "yes"
+        - _login_only == "yes" or _config_login == "yes"
       no_log: true
 
 
