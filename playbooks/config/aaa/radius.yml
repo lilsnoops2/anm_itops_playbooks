@@ -16,6 +16,11 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
+    load_balance: "{{ load_balance | default('no') }}"
+    config_avp: "{{ config_avp | default('no') }}"
+    config_coa: "{{ config_coa | default('no') }}"
+    config_login: "{{ config_login | default('no') }}"
+    login_only: "{{ login_only | default('no') }}"
 
 
   pre_tasks:
@@ -199,7 +204,7 @@
           - "client {{ server.ip }} server-key {{ server.key }}"
       loop: "{{ servers_with_names }}"
       loop_control:
-        label: ""
+        label: "Hidden"
         loop_var: server
       no_log: true
 
