@@ -770,11 +770,15 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
     - `retries` (optional): Amount of times to retry, defaults to 3
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+    - `load_balance` (optional): Sets load balancing of servers in the server group globally
     - `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
     - `config_tester` (optional): Set to 'yes' to also configure automate tester for the configured radius servers. Defaults to 'no'.
     - `config_login` (optional): Set to 'yes' to configure login and mab/dot1x. Defaults to 'no'.
     - `login_only` (optional): Set to 'yes' to ato only configure login. Defaults to 'no'.
     - `group_name` (optional): Override the default radius group name to use a specific name instead of the one built using the organization_prefix var
+    - `config_avp` (optional): Sets RADIUS additional AVPs to be sent with the access-request message: attribute 6 on-for-login-auth, attribute 8 include-in-access-req, attribute 25 access-request include, attribute 31 mac format ietf, attribute 31 send nas-port-detail
+    - `config_device_sensor` (optional): Configures device-sensor to send cdp, lldp, and dhcp information to the server using accounting messages.
+
 
 
     **Examples**   
@@ -879,6 +883,10 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
     - `retries` (optional): Amount of times to retry, defaults to 3
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+    - `load_balance` (optional): Sets load balancing of servers in the server group globally
+    - `config_avp` (optional): Sets RADIUS additional AVPs to be sent with the access-request message: attribute 6 on-for-login-auth, attribute 8 include-in-access-req, attribute 25 access-request include, attribute 31 mac format ietf, attribute 31 send nas-port-detail
+    - `config_device_sensor` (optional): Configures device-sensor to send cdp, lldp, and dhcp information to the server using accounting messages.
+
 
     **Examples**   
     Configures global settings on a single device. 
