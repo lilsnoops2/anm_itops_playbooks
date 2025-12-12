@@ -142,7 +142,9 @@
               }}
           loop: "{{ config_lines }}"
           loop_control:
+            label: ""
             loop_var: line
+          no_log: true
 
     - name: Build list of currently configured TACACS IPs
       set_fact:
@@ -160,7 +162,9 @@
           }}
       loop: "{{ tacacs_servers }}"
       loop_control:
+        label: ""
         loop_var: server
+      no_log: true
 
     - name: Add or update TACACS servers (reuse existing key if present)
       ios_config:
@@ -170,7 +174,9 @@
           - "{{ 'key ' ~ existing_tacacs_keys[server.server_name] if server.server_name in existing_tacacs_keys else 'key ' ~ (server.key | default(tacacs_key)) }}"
       loop: "{{ servers_with_names }}"
       loop_control:
+        label: ""
         loop_var: server
+      no_log: true
 
 
     - name: Configure TACACS+ server group
@@ -222,6 +228,7 @@
       loop: "{{ vty_groups }}"
       loop_control:
         label: "VTY {{ item.0 }}-{{ item.1 }}"
+      no_log: true
       when:
         - ansible_network_os in ['ios', 'iosxe']
         - vty_groups | length > 0
