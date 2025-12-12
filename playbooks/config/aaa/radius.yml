@@ -1,4 +1,4 @@
-#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'config_coa=yes' -e 'deadtime=10' -e 'timeout=3' -e 'retries=3'
+#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'config_coa=yes' -e 'deadtime=10' -e 'timeout_seconds=3' -e 'retry=3'
 ---
 - name: Standardize radius configuration with named method lists
   hosts: all
@@ -223,7 +223,7 @@
           - "radius-server attribute 25 access-request include"
           - "radius-server attribute 31 mac format ietf"
           - "radius-server attribute 31 send nas-port-detail"
-        match: line
+        match: exact
       ignore_errors: true
 
 
@@ -235,7 +235,7 @@
         lines:
           - "device-sensor notify all-changes"
           - "device-sensor accounting"
-        match: line
+        match: exact
       ignore_errors: true
 
 
@@ -245,12 +245,12 @@
     - name: Enforce AAA global settings (no load-balance)
       ios_config:
         lines:
-          - "radius-server dead-criteria time {{ timeout | default(3) }} tries {{ retries | default(3) }}"
-          - "radius-server retransmit {{ retries | default(3) }}"
-          - "radius-server timeout {{ timeout | default(3) }}"
-          - "radius-server deadtime{{ deadtime | default(10) }}"
+          - "radius-server dead-criteria time {{ timeout_seconds | default(3) }} tries {{ retry | default(3) }}"
+          - "radius-server retransmit {{ retry | default(3) }}"
+          - "radius-server timeout {{ timeout_seconds | default(3) }}"
+          - "radius-server deadtime {{ deadtime | default(10) }}"
           - "no radius-server load-balance method least-outstanding"
-        match: line
+        match: exact
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
@@ -259,12 +259,12 @@
     - name: Enforce AAA global settings (load-balance)
       ios_config:
         lines:
-          - "radius-server dead-criteria time {{ timeout | default(3) }} tries {{ retries | default(3) }}"
-          - "radius-server retransmit {{ retries | default(3) }}"
-          - "radius-server timeout {{ timeout | default(3) }}"
-          - "radius-server deadtime{{ deadtime | default(10) }}"
+          - "radius-server dead-criteria time {{ timeout_seconds | default(3) }} tries {{ retry | default(3) }}"
+          - "radius-server retransmit {{ retry | default(3) }}"
+          - "radius-server timeout {{ timeout_seconds | default(3) }}"
+          - "radius-server deadtime {{ deadtime | default(10) }}"
           - "radius-server load-balance method least-outstanding"
-        match: line
+        match: exact
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
@@ -286,7 +286,7 @@
           - "aaa accounting auth-proxy default start-stop group {{ radius_group_name }}"
           - "aaa accounting dot1x default start-stop group {{ radius_group_name }}"
           - "aaa accounting update newinfo periodic 2880"
-        match: line
+        match: exact
       when: 
        - ansible_network_os in ['ios', 'iosxe']
        - config_login == "yes"
@@ -301,7 +301,7 @@
           - "aaa accounting commands 1 default start-stop group {{ radius_group_name }}"
           - "aaa accounting commands 5 default start-stop group {{ radius_group_name }}"
           - "aaa accounting commands 15 default start-stop group {{ radius_group_name }}"
-        match: line
+        match: exact
       when: 
        - ansible_network_os in ['ios', 'iosxe']
        - login_only == "yes"
@@ -316,7 +316,7 @@
           - "aaa accounting auth-proxy default start-stop group {{ radius_group_name }}"
           - "aaa accounting dot1x default start-stop group {{ radius_group_name }}"
           - "aaa accounting update newinfo periodic 2880"
-        match: line
+        match: exact
       when: 
        - ansible_network_os in ['ios', 'iosxe']
 

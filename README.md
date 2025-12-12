@@ -769,8 +769,8 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
     - `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
     - `radius_key` (required): The PSK used for the RADIUS server
-    - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
-    - `retries` (optional): Amount of times to retry, defaults to 3
+    - `timeout_seconds` (optional): Timeout in seconds, defaults to 3 seconds
+    - `retry` (optional): Amount of times to retry, defaults to 3
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
     - `load_balance` (optional): Sets load balancing of servers in the server group globally
     - `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
