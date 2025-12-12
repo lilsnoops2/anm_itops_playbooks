@@ -16,15 +16,6 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
-    #deadtime: "{{ deadtime | default(10) }}"
-    #_timeout: "{{ timeout | default(3) }}"
-    #_retries: "{{ retries | default(3) }}"
-    # config_coa: "no"
-    # config_tester: "no"
-    # config_avp: "no"
-    # config_device_sensor: "no"
-    # config_login: "no"
-    # login_only: "no"
 
 
   pre_tasks:
