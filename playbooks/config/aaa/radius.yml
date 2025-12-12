@@ -306,7 +306,6 @@
           - "aaa accounting auth-proxy default start-stop group {{ radius_group_name }}"
           - "aaa accounting dot1x default start-stop group {{ radius_group_name }}"
           - "aaa accounting update newinfo periodic 2880"
-
         match: line
       when: 
        - ansible_network_os in ['ios', 'iosxe']
