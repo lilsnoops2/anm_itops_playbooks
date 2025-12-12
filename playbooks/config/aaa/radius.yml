@@ -170,6 +170,7 @@
       loop: "{{ servers_with_names }}"
       loop_control:
         loop_var: server
+      no_log: true
 
 
     - name: Configure radius server group
@@ -193,6 +194,7 @@
       loop: "{{ servers_with_names }}"
       loop_control:
         loop_var: server
+      no_log: true
 
     - name: Add or update COA servers
       when: config_coa == "yes"
@@ -203,6 +205,7 @@
       loop: "{{ servers_with_names }}"
       loop_control:
         loop_var: server
+      no_log: true
 
     - name: Set RADIUS Access request AVP
       when: 
@@ -344,6 +347,7 @@
       when: 
         - ansible_network_os in ['ios', 'iosxe']
         - login_only == "yes" or config_login == "yes"
+      no_log: true
 
 
     ##########################################################
