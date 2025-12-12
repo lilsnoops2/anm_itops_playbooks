@@ -1,4 +1,4 @@
-#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'config_coa=yes' -e 'deadtime=10' -e 'timeout_seconds=3' -e 'retry=3'
+#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'conf_coa=yes' -e 'deadtime=10' -e 'timeout_seconds=3' -e 'retry=3'
 ---
 - name: Standardize radius configuration with named method lists
   hosts: all
@@ -16,11 +16,13 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
-    load_balance: "{{ load_balance | default('no') }}"
-    config_avp: "{{ config_avp | default('no') }}"
-    config_coa: "{{ config_coa | default('no') }}"
-    config_login: "{{ config_login | default('no') }}"
-    login_only: "{{ login_only | default('no') }}"
+    lb: "{{ load_balance | default('no') }}"
+    conf_tester: "{{ config_tester | default('no') }}"
+    conf_avp: "{{ config_avp | default('no') }}"
+    conf_coa: "{{ config_coa | default('no') }}"
+    conf_login: "{{ config_login | default('no') }}"
+    login_o: "{{ login_only | default('no') }}"
+    conf_device_sensor: "{{ config_device_sensor | default('no') }}"
 
 
   pre_tasks:
@@ -136,7 +138,7 @@
               }}
           loop: "{{ config_lines }}"
           loop_control:
-            label: ""
+            label: "hidden"
             loop_var: line
           no_log: true
 
@@ -156,7 +158,7 @@
           }}
       loop: "{{ radius_servers }}"
       loop_control:
-        label: ""
+        label: "hidden"
         loop_var: server
       no_log: true
 
@@ -168,7 +170,7 @@
           - "{{ 'key ' ~ existing_radius_keys[server.server_name] if server.server_name in existing_radius_keys else 'key ' ~ (server.key | default(radius_key)) }}"
       loop: "{{ servers_with_names }}"
       loop_control:
-        label: ""
+        label: "hidden"
         loop_var: server
       no_log: true
 
@@ -186,7 +188,7 @@
     - name: Add automate-tester line under each RADIUS server
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_tester == 'yes'
+        - conf_tester == 'yes'
       ios_config:
         lines:
           - "automate-tester username radius-test idle-time 10"
@@ -197,7 +199,7 @@
       no_log: true
 
     - name: Add or update COA servers
-      when: config_coa == "yes"
+      when: conf_coa == "yes"
       ios_config:
         parents: "aaa server radius dynamic-author"
         lines:
@@ -211,7 +213,7 @@
     - name: Set RADIUS Access request AVP
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_avp == 'yes'
+        - conf_avp == 'yes'
       ios_config:
         lines:
           - "radius-server attribute 6 on-for-login-auth"
@@ -226,7 +228,7 @@
     - name: Enable Device Sensor
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - config_device_sensor == 'yes'
+        - conf_device_sensor == 'yes'
       ios_config:
         lines:
           - "device-sensor notify all-changes"
@@ -250,7 +252,7 @@
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - load_balance is not defined
+       - lb == "no"
 
     - name: Enforce AAA global settings - load-balance
       ios_config:
@@ -264,7 +266,7 @@
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - load_balance == "yes"
+       - lb == "yes"
 
 
     - name: Enforce AAA authentication/authorization/accounting - dot1x/mab/login
@@ -285,7 +287,7 @@
         match: exact
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - config_login == "yes"
+       - conf_login == "yes"
 
 
     - name: Enforce AAA authentication/authorization/accounting - login only
@@ -300,7 +302,7 @@
         match: exact
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - login_only == "yes"
+       - login_o == "yes"
 
     - name: Enforce AAA authentication/authorization/accounting  - dot1x/mab only
       ios_config:
@@ -326,14 +328,14 @@
       register: vty_lines_output
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_only == "yes" or config_login == "yes"
+        - login_o == "yes" or conf_login == "yes"
 
     - name: Parse VTY line ranges (e.g., 0 4, 5 15, 0 31)
       set_fact:
         vty_groups: "{{ vty_lines_output.stdout[0] | regex_findall('line vty (\\d+)\\s+(\\d+)') | map('map', 'int') | list }}"
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_only == "yes" or config_login == "yes"
+        - login_o == "yes" or conf_login == "yes"
 
     - name: Configure VTY line login and authorization ranges
       ios_config:
@@ -344,10 +346,10 @@
         match: line
       loop: "{{ vty_groups }}"
       loop_control:
-        label: ""
+        label: "hidden"
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_only == "yes" or config_login == "yes"
+        - login_o == "yes" or conf_login == "yes"
       no_log: true
 
 
