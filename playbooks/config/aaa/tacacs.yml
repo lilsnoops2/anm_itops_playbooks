@@ -10,7 +10,7 @@
   vars:
     organization_prefix: "{{ org_prefix | default('') }}"
     prompt_for_prefix: "{{ organization_prefix == '' }}"
-    tacacs_group_name: "{{ organization_prefix }}-TACACS"
+    tacacs_group_name: "{{ organization_prefix }}-tacacs"
     auth_method_list: "{{ organization_prefix }}-authc-tacacs"
     authz_method_list: "{{ organization_prefix }}-authz-tacacs"
     ansible_become_password: "{{ enable | default(ansible_password) }}"
