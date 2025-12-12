@@ -72,7 +72,7 @@
 
     - name: Update naming convention variables
       set_fact:
-        tacacs_group_name: "{{ organization_prefix }}-TACACS"
+        tacacs_group_name: "{{ group_name | default(organization_prefix ~ '-TACACS') }}"
         auth_method_list: "{{ organization_prefix }}-authc"
         authz_method_list: "{{ organization_prefix }}-authz"
 
@@ -117,7 +117,7 @@
     # 2. Configure named TACACS+ servers
     ##########################################################
 
-    - name: Initialize RADIUS server facts
+    - name: Initialize TACACS server facts
       set_fact:
         existing_tacacs_map: {}
         existing_tacacs_keys: {}
@@ -135,7 +135,7 @@
               }}
             existing_tacacs_keys: >-
               {{
-                (line.startswith('radius server') and
+                (line.startswith('tacacs server') and
                  (config_lines[config_lines.index(line)+2].split(None,1)[1] if 'key ' in config_lines[config_lines.index(line)+2] else None)
                  is not none and
                  existing_tacacs_keys.update({line.split()[2]: config_lines[config_lines.index(line)+2].split(None,1)[1]}) or existing_tacacs_keys)
@@ -162,7 +162,7 @@
       loop_control:
         loop_var: server
 
-    - name: Add or update RADIUS servers (reuse existing key if present)
+    - name: Add or update TACACS servers (reuse existing key if present)
       ios_config:
         parents: "tacacs server {{ server.server_name }}"
         lines:
@@ -186,10 +186,14 @@
       ios_config:
         lines:
           - "aaa authentication login {{ auth_method_list }} group {{ tacacs_group_name }} local enable"
+          - "aaa authentication login console group {{ tacacs_group_name }} local"
+          - "aaa authorization console"
           - "aaa authentication enable default group {{ tacacs_group_name }} enable"
           - "aaa authorization exec {{ authz_method_list }} group {{ tacacs_group_name }} local if-authenticated"
           - "aaa accounting commands 1 default start-stop group {{ tacacs_group_name }}"
+          - "aaa accounting commands 5 default start-stop group {{ tacacs_group_name }}"
           - "aaa accounting commands 15 default start-stop group {{ tacacs_group_name }}"
+          - "aaa accounting update newinfo periodic 120"
         match: line
       when: ansible_network_os in ['ios', 'iosxe']
 

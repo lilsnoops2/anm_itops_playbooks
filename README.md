@@ -713,6 +713,8 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
     - `organization_prefix` (required): Prefix that will be appended to the TACACS group and AAA method lists
     - `tacacs_key` (required): The PSK used for the TACACS server
+    - `group_name` (optional): Override the default tacacs group name to use a specific name instead of the one built using the organization_prefix var
+
 
     **Examples**   
     Configures TACACS on a single device. 
@@ -731,7 +733,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <summary>radius</summary>
 
     ##### `radius`
-    This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.
+    This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml. When no optional variables are used, the script configured RADIUS for use with dot1x/mab (network access) only. Special care must be taken when a client has both radius and tacacs available. Use the optional variables to configure login (device administration) using the same radius servers when not using tacacs for device administration. In environments with both protocols available, run this script to configure network access (dot1x/mab), then run tacacs script to configure device administration.
 
     **Summary/Overview of tasks:**  
     * Configures AAA new-model if not configured - required for devices that are newly being configured
@@ -767,11 +769,19 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
     - `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
     - `radius_key` (required): The PSK used for the RADIUS server
-    - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
-    - `retries` (optional): Amount of times to retry, defaults to 3
+    - `timeout_seconds` (optional): Timeout in seconds, defaults to 3 seconds
+    - `retry` (optional): Amount of times to retry, defaults to 3
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+    - `load_balance` (optional): Sets load balancing of servers in the server group globally
     - `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
     - `config_tester` (optional): Set to 'yes' to also configure automate tester for the configured radius servers. Defaults to 'no'.
+    - `config_login` (optional): Set to 'yes' to configure login and mab/dot1x. Defaults to 'no'.
+    - `login_only` (optional): Set to 'yes' to ato only configure login. Defaults to 'no'.
+    - `group_name` (optional): Override the default radius group name to use a specific name instead of the one built using the organization_prefix var
+    - `config_avp` (optional): Sets RADIUS additional AVPs to be sent with the access-request message: attribute 6 on-for-login-auth, attribute 8 include-in-access-req, attribute 25 access-request include, attribute 31 mac format ietf, attribute 31 send nas-port-detail
+    - `config_device_sensor` (optional): Configures device-sensor to send cdp, lldp, and dhcp information to the server using accounting messages.
+
+
 
     **Examples**   
     Configures RADIUS on a single device. 
@@ -875,6 +885,10 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
     - `retries` (optional): Amount of times to retry, defaults to 3
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+    - `load_balance` (optional): Sets load balancing of servers in the server group globally
+    - `config_avp` (optional): Sets RADIUS additional AVPs to be sent with the access-request message: attribute 6 on-for-login-auth, attribute 8 include-in-access-req, attribute 25 access-request include, attribute 31 mac format ietf, attribute 31 send nas-port-detail
+    - `config_device_sensor` (optional): Configures device-sensor to send cdp, lldp, and dhcp information to the server using accounting messages.
+
 
     **Examples**   
     Configures global settings on a single device. 

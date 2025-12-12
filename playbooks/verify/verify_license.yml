@@ -59,6 +59,7 @@
           - show license status
           - show license all
           - show license udi
+          - show license authorization
       register: license_info
       ignore_errors: true
 

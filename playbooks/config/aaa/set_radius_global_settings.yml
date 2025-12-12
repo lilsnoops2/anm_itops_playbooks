@@ -11,7 +11,9 @@
     deadtime: "{{ deadtime | default(10) }}"
     timeout: "{{ timeout | default(3) }}"
     retries: "{{ retries | default(3) }}"
-
+    load_balance: "{{ load_balance | default('no') }}"
+    config_avp: "{{ config_avp | default('no') }}"
+    config_device_sensor: "{{ config_device_sensor | default('no') }}"
 
   pre_tasks:
 
@@ -47,14 +49,59 @@
   tasks:
 
     - name: Set RADIUS server global parameters
-      when: ansible_network_os in ['ios', 'iosxe']
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+        - load_balance == "no"
       ios_config:
         lines:
           - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
           - "radius-server retransmit {{ retries }}"
           - "radius-server timeout {{ timeout }}"
           - "radius-server deadtime{{ deadtime }}"
+          - "no radius-server load-balance method least-outstanding"
         match: line
+      ignore_errors: true
+
+
+    - name: Set RADIUS server global parameters
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+        - load_balance == "yes"
+      ios_config:
+        lines:
+          - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
+          - "radius-server retransmit {{ retries }}"
+          - "radius-server timeout {{ timeout }}"
+          - "radius-server deadtime{{ deadtime }}"
+          - "radius-server load-balance method least-outstanding"
+        match: line
+      ignore_errors: true
+
+
+    - name: Set RADIUS Access request AVP
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+        - config_avp == "yes"
+      ios_config:
+        lines:
+          - "radius-server attribute 6 on-for-login-auth"
+          - "radius-server attribute 8 include-in-access-req"
+          - "radius-server attribute 25 access-request include"
+          - "radius-server attribute 31 mac format ietf"
+          - "radius-server attribute 31 send nas-port-detail"
+        match: line
+      ignore_errors: true
+
+    - name: Enable Device Sensor
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+        - config_device_sensor == "yes"
+      ios_config:
+        lines:
+          - "device-sensor notify all-changes"
+          - "device-sensor accounting"
+        match: line
+      ignore_errors: true
 
     - name: Save running configuration
       ios_command:
