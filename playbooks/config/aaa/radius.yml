@@ -400,15 +400,12 @@
           }}
       when: cleanup_radius == 'yes'
 
-    - name: Find method list references outside AAA
+    - name: Find method list references outside AAA safely
       set_fact:
         external_references: >-
           {{
             existing_method_lists
-            | select(
-                'search',
-                non_aaa_lines | join('\n') | lower
-              )
+            | select("search_in_lines", non_aaa_lines)
             | list
           }}
       when: cleanup_radius == 'yes' and existing_method_lists | length > 0
