@@ -374,6 +374,11 @@
           - "show running-config"
       register: rc
 
+    - name: DEBUG — show raw AAA lines exactly as Ansible sees them
+      debug:
+        msg: "{{ rc.stdout[0].splitlines() }}"
+
+
       # Clean up AAA Method lists
       ##########################################################
     - name: Build list of named AAA method lists (safe)
