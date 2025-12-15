@@ -521,7 +521,6 @@
           }}
       when:
         - cleanup_radius == 'yes'
-        - existing_method_lists | length > 0
 
     - name: Capture AAA lines for each named method list
       set_fact:
