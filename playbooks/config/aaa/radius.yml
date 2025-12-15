@@ -89,15 +89,12 @@
         radius_key: "{{ radius_key_prompt.user_input }}"
       when: radius_key is not defined
 
-
     - name: Ensure AAA new-model is enabled
       ios_config:
         lines:
           - "aaa new-model"
-        save_when: modified
         match: exact
       when: ansible_network_os in ['ios', 'iosxe']
-
 
   tasks:
     ##########################################################
@@ -405,18 +402,20 @@
 
       # c. Clean up groups
       ##########################################################
-    - name: Build existing radius group list
+    - name: Build existing radius group list 
       when: cleanup_radius == 'yes'
       set_fact:
         existing_radius_groups: >-
           {{
             cleanup_cfg.stdout[1]
-            | map('regex_replace', '^aaa group server radius ', '')
+            | map('regex_findall', '^aaa group server radius (\\S+)') 
+            | flatten                
+            | select('string')
+            | unique
             | list
           }}
 
-
-    - name: Build referenced radius group list (fixed)
+    - name: Build referenced radius group list
       when: cleanup_radius == 'yes'
       set_fact:
         referenced_radius_groups: >-
