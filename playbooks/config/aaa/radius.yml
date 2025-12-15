@@ -392,11 +392,8 @@
         existing_method_lists: >-
           {{
             aaa_lines
-            | regex_findall(
-                '^aaa (authentication|authorization|accounting) \\S+ (\\S+)',
-                multiline=True
-              )
-            | map('last')
+            | map('regex_search', '^aaa (authentication|authorization|accounting).*? (\\S+)', '\\2')
+            | select('string')   # removes None matches
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
             | list
