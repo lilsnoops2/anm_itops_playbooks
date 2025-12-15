@@ -394,13 +394,13 @@
   
     - name: Build dict of method list -> its AAA config lines
       set_fact:
-        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: aaa_lines }) }}"
+        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: lines }) }}"
       vars:
-        aaa_lines: >-
+        lines: >-
           {{
             rc.stdout[0].splitlines()
             | map('trim')
-            | select('match', '^aaa\s+')
+            | select('search', '^aaa ')
             | select('search', '\\b' ~ item ~ '\\b')
             | list
           }}
