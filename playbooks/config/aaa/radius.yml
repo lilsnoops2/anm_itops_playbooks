@@ -356,7 +356,8 @@
     ##########################################################
     # 6. Optional Cleanup
     ##########################################################
-
+      # Gather info
+      ##########################################################
     - name: Gather full AAA and radius related config
       when: cleanup_radius == 'yes'
       ios_command:
@@ -415,7 +416,7 @@
       set_fact:
         existing_radius_groups: >-
           {{
-            cleanup_cfg.stdout[1]  # stdout[1] is from "show running-config | include ^aaa group server radius"
+            cleanup_cfg.stdout[1]
             | map('regex_replace', '^aaa group server radius ', '')
             | list
           }}
@@ -465,7 +466,7 @@
       set_fact:
         existing_coa_ips: >-
           {{
-            cleanup_cfg.stdout[2]  # stdout[2] is "show running-config | section ^aaa server radius dynamic-author"
+            cleanup_cfg.stdout[2]
             | regex_findall('client (\\d+\\.\\d+\\.\\d+\\.\\d+)', multiline=True)
             | unique
             | list
