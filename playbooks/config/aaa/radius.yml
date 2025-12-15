@@ -380,57 +380,66 @@
 
       # Clean up AAA Method lists
       ##########################################################
+    - name: Split AAA vs non-AAA config lines
+      set_fact:
+        aaa_lines: "{{ config_lines | select('match', '^aaa ') | list }}"
+        non_aaa_lines: "{{ config_lines | reject('match', '^aaa ') | list }}"
+      when:
+        - cleanup_radius == 'yes'
+
     - name: Extract defined AAA method lists
       set_fact:
-        defined_method_lists: >-
+        existing_method_lists: >-
           {{
-            config_lines
-            | map('regex_search', '^aaa authentication login (\S+)', '\\1')
-            | select('string')
+            aaa_lines
+            | regex_findall(
+                '^aaa (authentication|authorization|accounting) \\S+ (\\S+)',
+                multiline=True
+              )
+            | map('last')
+            | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
+            | unique
             | list
           }}
-
-    - name: Debug defined AAA method lists
-      debug:
-        var: defined_method_lists
 
     - name: Find method list references outside AAA
       set_fact:
-        used_outside_aaa: >-
+        external_references: >-
           {{
-            config_lines
-            | select('search', '^(?!aaa )')   # lines that do NOT start with 'aaa'
-            | select('search', item)          # reference to method list
+            existing_method_lists
+            | select('match', non_aaa_lines | join('\n'))
             | list
           }}
-      loop: "{{ defined_method_lists }}"
-      loop_control:
-        loop_var: item
-      register: usage_check
+      when:
+        - cleanup_radius == 'yes'
 
-    - name: Aggregate used outside AAA
+
+    - name: Determine removable method lists
       set_fact:
-        used_outside_aaa: >-
+        removable_method_lists: >-
           {{
-            usage_check.results
-            | map(attribute='results')
-            | flatten
-            | unique
+            existing_method_lists
+            | difference(external_references)
+            | list
           }}
+      when:
+        - cleanup_radius == 'yes'
+        - existing_method_lists is defined
 
-    - name: Determine safe-to-remove method lists
-      set_fact:
-        safe_to_remove: "{{ defined_method_lists | difference(used_outside_aaa) }}"
-
-    - name: Debug safe-to-remove method lists
-      debug:
-        var: safe_to_remove
+    - debug:
+        msg:
+          defined: "{{ existing_method_lists }}"
+          used_outside_aaa: "{{ external_references }}"
+          safe_to_remove: "{{ removable_method_lists }}"
 
     - name: Remove unused AAA method lists
+      when:
+        - cleanup_radius == 'yes'
+        - removable_method_lists | length > 0
       ios_config:
-        lines: "{{ item }}"
-      loop: "{{ safe_to_remove | map('regex_replace', '^(.*)$', 'no aaa authentication login \\1') | list }}"
-      when: safe_to_remove | length > 0
+        lines:
+          - "{{ method_list_lines[item] }}"
+      loop: "{{ removable_method_lists }}"
 
     # Clean up servers
     ##########################################################
