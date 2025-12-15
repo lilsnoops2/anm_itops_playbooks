@@ -367,6 +367,13 @@
           - "show running-config | include ^aaa accounting "
       register: cleanup_cfg
 
+    - name: Gather full run
+      when: cleanup_radius == 'yes'
+      ios_command:
+        commands:
+          - "show running-config"
+      register: rc
+
     # a. Clean up servers
     ##########################################################
     - name: Build desired radius server name list
@@ -492,44 +499,61 @@
 
       # c. Clean up AAA Method lists
       ##########################################################
-    - name: Find all AAA method lists
-      when: cleanup_radius == 'yes'
+    - name: Build list of named AAA method lists
       set_fact:
         existing_method_lists: >-
           {{
-            (cleanup_cfg.stdout[3] + cleanup_cfg.stdout[4] + cleanup_cfg.stdout[5])
-            | regex_findall('aaa (authentication|authorization|accounting) \\S+ (\\S+)')
+            rc.stdout[0] 
+            | regex_findall('^aaa (authentication|authorization|accounting) \\S+ (\\S+)')
             | map('last')
+            | reject('equalto', 'default')
             | unique
             | list
           }}
 
-    - name: Determine unused method lists (non-default)
-      when: cleanup_radius == 'yes'
+    - name: Build dict of method list -> its AAA lines
       set_fact:
-        unused_method_lists: >-
+        method_list_lines: >-
           {{
-            existing_method_lists
-            | difference(referenced_method_lists)
-            | difference(['default'])
+            existing_method_lists | items2dict(key_name='item', value_name='lines')
           }}
 
-    - debug:
-        msg:
-          existing: "{{ existing_method_lists }}"
-          refrenced: "{{ referenced_method_lists }}"
-          unused: "{{ unused_method_lists }}" 
+    - name: Capture AAA lines for each named method list
+      set_fact:
+        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: rc.stdout[0] | regex_findall('^aaa .* ' ~ item ~ '.*') }) }}"
+      loop: "{{ existing_method_lists }}"
+
+    - name: Determine which method lists are safe to remove
+      set_fact:
+        removable_method_lists: >-
+          {{
+            existing_method_lists
+            | select(
+                'none',  # keep only if not found elsewhere
+                rc.stdout[0]
+                | regex_replace('(' + (method_list_lines[item] | join('|')) + ')', '') 
+                | regex_search(item)
+              )
+            | list
+          }}
+      loop: "{{ existing_method_lists }}"
+      loop_control:
+        loop_var: item
 
     - name: Remove unused AAA method lists
-      when:
-        - cleanup_radius == 'yes'
-        - unused_method_lists | length > 0
       ios_config:
-        lines:
-          - "no aaa authentication login {{ item }}"
-          - "no aaa authorization exec {{ item }}"
-          - "no aaa accounting network {{ item }}"
-      loop: "{{ unused_method_lists }}"
+        lines: "{{ method_list_lines[item] }}"
+      loop: "{{ removable_method_lists }}"
+      loop_control:
+        loop_var: item
+
+    - name: Report method lists that could not be removed
+      debug:
+        msg: >-
+          Method list "{{ item }}" is in use elsewhere, skipping removal.
+      loop: "{{ existing_method_lists | difference(removable_method_lists) }}"
+      loop_control:
+        loop_var: item
 
 
     ##########################################################
