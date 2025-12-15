@@ -357,53 +357,44 @@
     # 6. Optional Cleanup
     ##########################################################
 
-    - name: Gather full running-config once (cleanup)
+    - name: Gather full AAA and radius related config
       when: cleanup_radius == 'yes'
       ios_command:
         commands:
-          - "show running-config"
-      register: cleanup_state
+          - "show running-config | include ^radius server"
+          - "show running-config | include ^aaa group server radius"
+          - "show running-config | section ^aaa server radius dynamic-author"
+      register: cleanup_cfg
 
-    - name: Set running-config fact
+    - name: Gather AAA references
+      when: cleanup_radius == 'yes'
+      ios_command:
+        commands:
+          - "show running-config | include ^aaa authentication "
+          - "show running-config | include ^aaa authorization "
+          - "show running-config | include ^aaa accounting "
+      register: aaa_reference_lines
+
+
+    - name: Build desired radius server name list
       when: cleanup_radius == 'yes'
       set_fact:
-        rc: "{{ cleanup_state.stdout[0] }}"
+        desired_radius_server_names: "{{ servers_with_names | map(attribute='server_name') | list }}"
 
-
-    - name: Build existing radius server name→IP map (IOS-XE safe)
-      when: cleanup_radius == 'yes'
-      set_fact:
-        existing_radius_name_ip_map: >-
-          {{
-            dict(
-              rc | regex_findall(
-                'radius server (\\S+)(?:[\\s\\S]*?address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+)|.*address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+))',
-                multiline=True
-              )
-              | map('select', 'string')
-              | map('list')
-              | map('reject', 'equalto', '')
-              | map('first', wantlist=True)
-            )
-          }}
-
-
-
-    - name: Determine unused radius servers
+    - name: Determine unused radius servers (IP-safe)
       when: cleanup_radius == 'yes'
       set_fact:
         unused_radius_servers: >-
-          {{
-            existing_radius_name_ip_map
+          {{ existing_radius_map
             | dict2items
             | rejectattr('value', 'in', (radius_servers | map(attribute='ip') | list))
             | map(attribute='key')
-            | list
-          }}
+            | list }}
 
     - debug:
         msg:
-          existing: "{{ existing_radius_name_ip_map }}"
+          existing: "{{ existing_radius_map }}"
+          desired: "{{ desired_radius_server_names }}"
           unused: "{{ unused_radius_servers }}"
 
     - name: Remove unused radius servers
