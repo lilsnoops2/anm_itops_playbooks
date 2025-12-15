@@ -391,10 +391,6 @@
           }}
       when:
         - cleanup_radius == 'yes'
-
-    - debug:
-        msg:
-          existing: "{{ existing_method_lists }}"
   
     - name: Build dict of method list -> its AAA lines
       set_fact:
@@ -407,7 +403,8 @@
 
     - debug:
         msg:
-          existing: "{{ method_list_lines }}"
+          names: "{{ existing_method_lists }}"
+          lines: "{{ method_list_lines }}"
 
     - name: Capture AAA lines for each named method list
       set_fact:
@@ -421,31 +418,30 @@
       set_fact:
         removable_method_lists: >-
           {{
-            existing_method_lists
-            | select(
-                'none',
+            removable_method_lists | default([]) +
+            (
+              []
+              if (
                 rc.stdout[0]
-                | regex_replace('(' + (method_list_lines[item] | join('|')) + ')', '') 
-                | regex_search(item)
+                | regex_replace(method_list_lines[item] | join('\n'), '')
+                | regex_search('\\b' ~ item ~ '\\b')
               )
-            | list
+              else [item]
+            )
           }}
       loop: "{{ existing_method_lists }}"
-      loop_control:
-        loop_var: item
       when:
         - cleanup_radius == 'yes'
         - existing_method_lists is defined
 
     - name: Remove unused AAA method lists
-      ios_config:
-        lines: "{{ method_list_lines[item] }}"
-      loop: "{{ removable_method_lists }}"
-      loop_control:
-        loop_var: item
       when:
         - cleanup_radius == 'yes'
-        - removable_method_lists is defined
+        - removable_method_lists | length > 0
+      ios_config:
+        lines:
+          - "{{ method_list_lines[item] }}"
+      loop: "{{ removable_method_lists }}"
 
     - name: Report method lists that could not be removed
       debug:
