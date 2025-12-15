@@ -503,8 +503,9 @@
       set_fact:
         existing_method_lists: >-
           {{
-            rc.stdout[0]
-            | regex_findall('^\\s*aaa (?:authentication|authorization|accounting) \\S+ (\\S+)', multiline=True)
+            rc.stdout[0].splitlines()
+            | map('regex_search', '^\\s*aaa (authentication|authorization|accounting) \\S+ (\\S+)')
+            | select('string')
             | reject('equalto', 'default')
             | unique
             | list
@@ -526,13 +527,17 @@
       when:
         - cleanup_radius == 'yes'
 
+    - debug:
+        msg:
+          existing: "{{ method_list_lines }}"
+
     - name: Capture AAA lines for each named method list
       set_fact:
         method_list_lines: "{{ method_list_lines | default({}) | combine({ item: rc.stdout[0] | regex_findall('^aaa .* ' ~ item ~ '.*') }) }}"
       loop: "{{ existing_method_lists }}"
       when:
         - cleanup_radius == 'yes'
-        - method_list_lines | length > 0
+        - method_list_lines is defined
 
     - name: Determine which method lists are safe to remove
       set_fact:
@@ -552,7 +557,7 @@
         loop_var: item
       when:
         - cleanup_radius == 'yes'
-        - existing_method_lists | length > 0
+        - existing_method_lists is defined
 
     - name: Remove unused AAA method lists
       ios_config:
@@ -562,7 +567,7 @@
         loop_var: item
       when:
         - cleanup_radius == 'yes'
-        - removable_method_lists | length > 0
+        - removable_method_lists is defined
 
     - name: Report method lists that could not be removed
       debug:
