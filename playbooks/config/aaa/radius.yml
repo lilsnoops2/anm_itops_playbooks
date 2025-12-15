@@ -509,10 +509,10 @@
             | difference(['default']) }}
 
     - debug:
-      msg:
-        existing: "{{ existing_method_lists }}"
-        refrenced: "{{ referenced_method_lists }}"
-        unused: "{{ unused_method_lists }}" 
+        msg:
+          existing: "{{ existing_method_lists }}"
+          refrenced: "{{ referenced_method_lists }}"
+          unused: "{{ unused_method_lists }}" 
 
     - name: Remove unused AAA method lists
       when:
