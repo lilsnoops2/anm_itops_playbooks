@@ -406,7 +406,7 @@
       set_fact:
         external_references: >-
           {{
-            defined_method_lists
+            existing_method_lists
             | select('match', non_aaa_lines | join('\n'))
             | list
           }}
@@ -418,7 +418,7 @@
       set_fact:
         removable_method_lists: >-
           {{
-            defined_method_lists
+            existing_method_lists
             | difference(external_references)
             | list
           }}
@@ -428,7 +428,7 @@
 
     - debug:
         msg:
-          defined: "{{ defined_method_lists }}"
+          defined: "{{ existing_method_lists }}"
           used_outside_aaa: "{{ external_references }}"
           safe_to_remove: "{{ removable_method_lists }}"
 
