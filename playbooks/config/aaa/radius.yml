@@ -365,16 +365,10 @@
           - "show running-config | include ^radius server"
           - "show running-config | include ^aaa group server radius"
           - "show running-config | section ^aaa server radius dynamic-author"
-      register: cleanup_cfg
-
-    - name: Gather AAA references
-      when: cleanup_radius == 'yes'
-      ios_command:
-        commands:
           - "show running-config | include ^aaa authentication "
           - "show running-config | include ^aaa authorization "
           - "show running-config | include ^aaa accounting "
-      register: aaa_reference_lines
+      register: cleanup_cfg
 
     # a. Clean up servers
     ##########################################################
@@ -422,13 +416,14 @@
           }}
 
 
-    - name: Build referenced radius group list
+    - name: Build referenced radius group list (safe)
       when: cleanup_radius == 'yes'
       set_fact:
         referenced_radius_groups: >-
           {{
-            (aaa_reference_lines.stdout[0] + aaa_reference_lines.stdout[1] + aaa_reference_lines.stdout[2])
-            | map('regex_search', 'group (\\S+)', '\\1')
+            (cleanup_cfg.stdout[3] + cleanup_cfg.stdout[4] + cleanup_cfg.stdout[5])
+            | map('regex_findall', 'group (\\S+)')
+            | map('first')
             | select('string')
             | unique
             | list
