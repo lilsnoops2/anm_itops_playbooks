@@ -401,11 +401,6 @@
       when:
         - cleanup_radius == 'yes'
 
-    - debug:
-        msg:
-          names: "{{ existing_method_lists }}"
-          lines: "{{ method_list_lines }}"
-
     - name: Capture AAA lines for each named method list
       set_fact:
         method_list_lines: "{{ method_list_lines | default({}) | combine({ item: rc.stdout[0] | regex_findall('^aaa .* ' ~ item ~ '.*') }) }}"
@@ -433,6 +428,12 @@
       when:
         - cleanup_radius == 'yes'
         - existing_method_lists is defined
+
+    - debug:
+        msg:
+          names: "{{ existing_method_lists }}"
+          lines: "{{ method_list_lines }}"
+          remove: "{{ removable_method_lists }}"
 
     - name: Remove unused AAA method lists
       when:
