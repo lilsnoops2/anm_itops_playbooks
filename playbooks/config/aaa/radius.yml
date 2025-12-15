@@ -357,43 +357,49 @@
     # 6. Optional Cleanup
     ##########################################################
 
-    - name: Gather full AAA and radius related config
+    - name: Gather RADIUS & AAA state for cleanup (single ios_command)
       when: cleanup_radius == 'yes'
       ios_command:
         commands:
-          - "show running-config | include ^radius server"
-          - "show running-config | include ^aaa group server radius"
-          - "show running-config | section ^aaa server radius dynamic-author"
-      register: cleanup_cfg
-
-    - name: Gather AAA references
-      when: cleanup_radius == 'yes'
-      ios_command:
-        commands:
-          - "show running-config | include ^aaa authentication "
-          - "show running-config | include ^aaa authorization "
-          - "show running-config | include ^aaa accounting "
-      register: aaa_reference_lines
+          - "show running-config | include ^ *radius server "
+          - "show running-config | include ^ *aaa group server radius "
+          - "show running-config | include ^ *aaa authentication "
+          - "show running-config | include ^ *aaa authorization "
+          - "show running-config | include ^ *aaa accounting "
+          - "show running-config | include ^ *aaa server radius dynamic-author"
+          - "show running-config | include ^ *client "
+      register: cleanup_state
 
 
-    - name: Build desired radius server name list
+    - name: Build existing radius server name→IP map
       when: cleanup_radius == 'yes'
       set_fact:
-        desired_radius_server_names: "{{ servers_with_names | map(attribute='server_name') | list }}"
+        existing_radius_name_ip_map: >-
+          {{
+            dict(
+              cleanup_state.stdout[0]
+              | regex_findall(
+                  'radius server (\\S+)[\\s\\S]*?address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+)',
+                  multiline=True
+                )
+            )
+          }}
 
-    - name: Determine unused radius servers (IP-safe)
+    - name: Determine unused radius servers
       when: cleanup_radius == 'yes'
       set_fact:
         unused_radius_servers: >-
-          {{ existing_radius_map
+          {{
+            existing_radius_name_ip_map
             | dict2items
             | rejectattr('value', 'in', (radius_servers | map(attribute='ip') | list))
             | map(attribute='key')
-            | list }}
+            | list
+          }}
 
     - debug:
         msg:
-          existing: "{{ existing_radius_map }}"
+          existing: "{{ existing_radius_name_ip_map }}"
           desired: "{{ desired_radius_server_names }}"
           unused: "{{ unused_radius_servers }}"
 
@@ -410,29 +416,36 @@
       when: cleanup_radius == 'yes'
       set_fact:
         existing_radius_groups: >-
-          {{ cleanup_cfg.stdout[1]
-            | regex_findall('^aaa group server radius (\\S+)', multiline=True)
-            | map('trim')
+          {{
+            cleanup_state.stdout[1]
+            | regex_findall('aaa group server radius (\\S+)', multiline=True)
             | unique
-            | list }}
+            | list
+          }}
 
-    - name: Extract referenced radius groups
+    - name: Build referenced radius group list
       when: cleanup_radius == 'yes'
       set_fact:
         referenced_radius_groups: >-
-          {{ (aaa_reference_lines.stdout | join('\n'))
+          {{
+            (cleanup_state.stdout[2]
+            + cleanup_state.stdout[3]
+            + cleanup_state.stdout[4])
             | regex_findall('group (\\S+)', multiline=True)
-            | map('trim')
             | unique
-            | list }}
+            | list
+          }}
+
 
     - name: Determine unused radius groups
       when: cleanup_radius == 'yes'
       set_fact:
         unused_radius_groups: >-
-          {{ existing_radius_groups
+          {{
+            existing_radius_groups
             | difference(referenced_radius_groups)
-            | difference([radius_group_name]) }}
+            | difference([radius_group_name])
+          }}
 
     - debug:
         msg:
@@ -450,29 +463,33 @@
       loop: "{{ unused_radius_groups }}"
 
 
-    - name: Build desired CoA client IP list
-      when: cleanup_radius == 'yes'
-      set_fact:
-        desired_coa_ips: "{{ servers_with_names | map(attribute='ip') | list }}"
-
-    - name: Find existing CoA client IPs
+    - name: Build existing CoA client IP list
       when: cleanup_radius == 'yes'
       set_fact:
         existing_coa_ips: >-
-          {{ cleanup_cfg.stdout[2] | regex_findall('client (\\d+\\.\\d+\\.\\d+\\.\\d+)', multiline=True) }}
+          {{
+            cleanup_state.stdout[6]
+            | regex_findall('client (\\d+\\.\\d+\\.\\d+\\.\\d+)', multiline=True)
+            | unique
+            | list
+          }}
+
 
     - name: Determine unused CoA clients
       when: cleanup_radius == 'yes'
       set_fact:
-        unused_coa_ips: "{{ existing_coa_ips | difference(desired_coa_ips) }}"
+        unused_coa_ips: >-
+          {{
+            existing_coa_ips
+            | difference(servers_with_names | map(attribute='ip') | list)
+          }}
 
     - debug:
         msg:
           existing: "{{ existing_coa_ips }}"
-          desired: "{{ existing_coa_ips }}"
           unused: "{{ unused_coa_ips }}"
 
-    - name: Remove unused CoA IPs
+    - name: Remove unused CoA clients
       when:
         - cleanup_radius == 'yes'
         - unused_coa_ips | length > 0
@@ -480,33 +497,50 @@
         parents: "aaa server radius dynamic-author"
         lines:
           - "no client {{ item }}"
-      loop: "{{ unused_radius_groups }}"
+      loop: "{{ unused_coa_ips }}"
 
-    - name: Find all AAA method lists
+
+    - name: Build existing AAA method lists
       when: cleanup_radius == 'yes'
       set_fact:
         existing_method_lists: >-
-          {{ (aaa_reference_lines.stdout | join('\n'))
+          {{
+            (cleanup_state.stdout[2]
+            + cleanup_state.stdout[3]
+            + cleanup_state.stdout[4])
             | regex_findall('aaa (authentication|authorization|accounting) \\S+ (\\S+)', multiline=True)
             | map('last')
-            | unique }}
+            | unique
+            | list
+          }}
 
-    - name: Find method lists referenced elsewhere
+    - name: Build referenced AAA method lists
       when: cleanup_radius == 'yes'
       set_fact:
         referenced_method_lists: >-
-          {{ (aaa_reference_lines.stdout | join('\n'))
+          {{
+            cleanup_state.stdout[0]
+            + cleanup_state.stdout[1]
+            + cleanup_state.stdout[2]
+            + cleanup_state.stdout[3]
+            + cleanup_state.stdout[4]
             | regex_findall('(authentication|authorization|accounting) \\S+ (\\S+)', multiline=True)
             | map('last')
-            | unique }}
+            | unique
+            | list
+          }}
 
-    - name: Determine unused method lists (non-default)
+
+    - name: Determine unused AAA method lists
       when: cleanup_radius == 'yes'
       set_fact:
         unused_method_lists: >-
-          {{ existing_method_lists
+          {{
+            existing_method_lists
             | difference(referenced_method_lists)
-            | difference(['default']) }}
+            | difference(['default'])
+          }}
+
 
     - debug:
         msg:
@@ -524,6 +558,7 @@
           - "no aaa authorization exec {{ item }}"
           - "no aaa accounting network {{ item }}"
       loop: "{{ unused_method_lists }}"
+
 
 
     ##########################################################
