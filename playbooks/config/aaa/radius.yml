@@ -370,18 +370,23 @@
         rc: "{{ cleanup_state.stdout[0] }}"
 
 
-    - name: Build existing radius server name→IP map
+    - name: Build existing radius server name→IP map (IOS-XE safe)
       when: cleanup_radius == 'yes'
       set_fact:
         existing_radius_name_ip_map: >-
           {{
             dict(
               rc | regex_findall(
-                'radius server (\\S+)\\n(?: .+\\n)*? address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+)',
+                'radius server (\\S+)(?:[\\s\\S]*?address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+)|.*address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+))',
                 multiline=True
               )
+              | map('select', 'string')
+              | map('list')
+              | map('reject', 'equalto', '')
+              | map('first', wantlist=True)
             )
           }}
+
 
 
     - name: Determine unused radius servers
@@ -416,11 +421,10 @@
         existing_radius_groups: >-
           {{
             rc | regex_findall(
-              'aaa group server radius (\\S+)',
+              '^aaa group server radius (\\S+)',
               multiline=True
             ) | unique | list
           }}
-
 
     - name: Build referenced radius group list
       when: cleanup_radius == 'yes'
@@ -428,10 +432,11 @@
         referenced_radius_groups: >-
           {{
             rc | regex_findall(
-              'group (\\S+)',
+              'aaa (authentication|authorization|accounting)[^\\n]+ group (\\S+)',
               multiline=True
-            ) | unique | list
+            ) | map('last') | unique | list
           }}
+
 
     - name: Determine unused radius groups
       when: cleanup_radius == 'yes'
@@ -501,11 +506,10 @@
         existing_method_lists: >-
           {{
             rc | regex_findall(
-              'aaa (authentication|authorization|accounting) \\S+ (\\S+)',
+              '^aaa (authentication|authorization|accounting) \\S+ (\\S+)',
               multiline=True
             ) | map('last') | unique | list
           }}
-
 
     - name: Build referenced AAA method lists
       when: cleanup_radius == 'yes'
@@ -513,12 +517,10 @@
         referenced_method_lists: >-
           {{
             rc | regex_findall(
-              '(authentication|authorization|accounting) \\S+ (\\S+)',
+              '^aaa (authentication|authorization|accounting) \\S+ (\\S+)',
               multiline=True
             ) | map('last') | unique | list
           }}
-
-
 
     - name: Determine unused AAA method lists
       when: cleanup_radius == 'yes'
@@ -529,7 +531,6 @@
             | difference(referenced_method_lists)
             | difference(['default'])
           }}
-
 
     - debug:
         msg:
