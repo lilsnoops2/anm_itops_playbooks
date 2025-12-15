@@ -374,78 +374,63 @@
           - "show running-config"
       register: rc
 
-    - name: DEBUG — show raw AAA lines exactly as Ansible sees them
-      debug:
-        msg: "{{ rc.stdout[0].splitlines() }}"
-
+    - name: Normalize running config into list of lines
+      set_fact:
+        config_lines: "{{ rc.stdout[0].splitlines() }}"
 
       # Clean up AAA Method lists
       ##########################################################
-    - name: Build list of named AAA method lists (safe)
+    - name: Split AAA vs non-AAA config lines
       set_fact:
-        existing_method_lists: >-
+        aaa_lines: "{{ config_lines | select('match', '^aaa ') | list }}"
+        non_aaa_lines: "{{ config_lines | reject('match', '^aaa ') | list }}"
+      when:
+        - cleanup_radius == 'yes'
+
+    - name: Extract defined AAA method lists
+      set_fact:
+        defined_method_lists: >-
           {{
-            rc.stdout[0].splitlines()
-            | map('trim')
-            | map('regex_findall', '^aaa\s+(?:authentication|authorization|accounting)\s+\S+\s+(\S+)')
-            | flatten
-            | reject('equalto', 'default')
-            | reject('in', ['console','1','5','15','newinfo'])
+            aaa_lines
+            | map('regex_search',
+                  '^aaa (authentication|authorization|accounting) \\S+ (\\S+)',
+                  '\\2')
+            | select('string')
             | unique
             | list
           }}
       when:
         - cleanup_radius == 'yes'
-  
-    - name: Build dict of method list -> its AAA config lines
+
+    - name: Find method list references outside AAA
       set_fact:
-        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: lines }) }}"
-      vars:
-        lines: >-
+        external_references: >-
           {{
-            rc.stdout[0].splitlines()
-            | map('trim')
-            | select('search', '^aaa ')
-            | select('search', '\\b' ~ item ~ '\\b')
+            defined_method_lists
+            | select('match', non_aaa_lines | join('\n'))
             | list
           }}
-      loop: "{{ existing_method_lists }}"
       when:
         - cleanup_radius == 'yes'
 
-    - name: Capture AAA lines for each named method list
-      set_fact:
-        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: rc.stdout[0] | regex_findall('^aaa .* ' ~ item ~ '.*') }) }}"
-      loop: "{{ existing_method_lists }}"
-      when:
-        - cleanup_radius == 'yes'
-        - method_list_lines is defined
 
-    - name: Determine which method lists are safe to remove
+    - name: Determine removable method lists
       set_fact:
         removable_method_lists: >-
           {{
-            removable_method_lists | default([]) +
-            (
-              []
-              if (
-                rc.stdout[0]
-                | regex_replace(method_list_lines[item] | join('\n'), '')
-                | regex_search('\\b' ~ item ~ '\\b')
-              )
-              else [item]
-            )
+            defined_method_lists
+            | difference(external_references)
+            | list
           }}
-      loop: "{{ existing_method_lists }}"
       when:
         - cleanup_radius == 'yes'
         - existing_method_lists is defined
 
     - debug:
         msg:
-          names: "{{ existing_method_lists }}"
-          lines: "{{ method_list_lines }}"
-          remove: "{{ removable_method_lists }}"
+          defined: "{{ defined_method_lists }}"
+          used_outside_aaa: "{{ external_references }}"
+          safe_to_remove: "{{ removable_method_lists }}"
 
     - name: Remove unused AAA method lists
       when:
@@ -455,18 +440,6 @@
         lines:
           - "{{ method_list_lines[item] }}"
       loop: "{{ removable_method_lists }}"
-
-    - name: Report method lists that could not be removed
-      debug:
-        msg: >-
-          Method list "{{ item }}" is in use elsewhere, skipping removal.
-      loop: "{{ existing_method_lists | difference(removable_method_lists) }}"
-      loop_control:
-        loop_var: item
-      when:
-        - cleanup_radius == 'yes'
-        - removable_method_lists is defined
-        - existing_method_lists is defined 
 
     # Clean up servers
     ##########################################################
