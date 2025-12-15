@@ -503,10 +503,9 @@
       set_fact:
         existing_method_lists: >-
           {{
-            rc.stdout[0] 
-            | regex_findall('^aaa (authentication|authorization|accounting) \\S+ (\\S+)')
-            | map('last')
-            | reject('equalto', 'default')
+            rc.stdout[0]
+            | regex_findall('^\\s*aaa (?:authentication|authorization|accounting) \\S+ (\\S+)', multiline=True)
+            | reject('equalto', 'default')  # exclude default
             | unique
             | list
           }}
