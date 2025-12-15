@@ -385,8 +385,8 @@
         defined_method_lists: >-
           {{
             config_lines
-            | select('search', '^aaa authentication login (\S+)')
             | map('regex_search', '^aaa authentication login (\S+)', '\\1')
+            | select('string')
             | list
           }}
 
