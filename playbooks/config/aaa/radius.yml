@@ -388,6 +388,7 @@
         msg:
           existing: "{{ existing_radius_map }}"
           desired: "{{ desired_radius_server_names }}"
+          unused: "{{ unused_radius_servers }}"
 
     - name: Determine unused radius servers
       when: cleanup_radius == 'yes'
