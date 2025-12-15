@@ -382,18 +382,18 @@
       ##########################################################
     - name: Split AAA vs non-AAA config lines
       set_fact:
-        aaa_lines: "{{ config_lines | select('match', '^aaa ') | list }}"
-        non_aaa_lines: "{{ config_lines | reject('match', '^aaa ') | list }}"
-      when:
-        - cleanup_radius == 'yes'
+        aaa_lines: "{{ config_lines | select('match', '^(?i)aaa\\s+') | list }}"
+        non_aaa_lines: "{{ config_lines | reject('match', '^(?i)aaa\\s+') | list }}"
+      when: cleanup_radius == 'yes'
 
     - name: Extract defined AAA method lists safely
       set_fact:
         existing_method_lists: >-
           {{
             aaa_lines
-            | map('regex_search', '^aaa (authentication|authorization|accounting).*? (\S+)', '\\2')
-            | select('defined') 
+            | map('regex_search', '^(?i)aaa\\s+(authentication|authorization|accounting)\\s+\\S+\\s+(\\S+)', '\\2', default='')  # default avoids None
+            | reject('equalto', '')            # remove empty strings
+            | map('lower')                     # normalize capitalization
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
             | list
@@ -406,8 +406,8 @@
           {{
             existing_method_lists
             | select(
-                'search', 
-                non_aaa_lines | join('\n')
+                'search',
+                non_aaa_lines | join('\n') | lower
               )
             | list
           }}
