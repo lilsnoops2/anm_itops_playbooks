@@ -393,7 +393,7 @@
           {{
             aaa_lines
             | map('regex_search', '^aaa (authentication|authorization|accounting).*? (\S+)', '\\2')
-            | select('defined')           # remove None values safely
+            | select('defined') 
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
             | list
