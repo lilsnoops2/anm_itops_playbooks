@@ -400,7 +400,6 @@
     - debug:
         msg:
           existing: "{{ existing_radius_name_ip_map }}"
-          desired: "{{ desired_radius_server_names }}"
           unused: "{{ unused_radius_servers }}"
 
     - name: Remove unused radius servers
