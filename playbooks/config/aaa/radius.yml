@@ -392,12 +392,18 @@
       when:
         - cleanup_radius == 'yes'
   
-    - name: Build dict of method list -> its AAA lines
+    - name: Build dict of method list -> its AAA config lines
       set_fact:
-        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: rc.stdout[0].splitlines() | select('search', item) | list }) }}"
+        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: aaa_lines }) }}"
+      vars:
+        aaa_lines: >-
+          {{
+            rc.stdout[0].splitlines()
+            | select('match', '^aaa\s+')
+            | select('search', '\\b' ~ item ~ '\\b')
+            | list
+          }}
       loop: "{{ existing_method_lists }}"
-      loop_control:
-        loop_var: item
       when:
         - cleanup_radius == 'yes'
 
