@@ -393,50 +393,50 @@
           {{
             aaa_lines
             | map('regex_search', '^aaa (authentication|authorization|accounting).*? (\S+)', '\\2')
-            | select('string')
+            | select('defined')           # remove None values safely
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
             | list
           }}
+      when: cleanup_radius == 'yes'
 
     - name: Find method list references outside AAA
       set_fact:
         external_references: >-
           {{
             existing_method_lists
-            | select('match', non_aaa_lines | join('\n'))
+            | select(
+                'search', 
+                non_aaa_lines | join('\n')
+              )
             | list
           }}
-      when:
-        - cleanup_radius == 'yes'
-
+      when: cleanup_radius == 'yes' and existing_method_lists | length > 0
 
     - name: Determine removable method lists
       set_fact:
         removable_method_lists: >-
           {{
             existing_method_lists
-            | difference(external_references)
+            | difference(external_references | default([]))
             | list
           }}
-      when:
-        - cleanup_radius == 'yes'
-        - existing_method_lists is defined
+      when: cleanup_radius == 'yes' and existing_method_lists | length > 0
 
     - debug:
         msg:
-          defined: "{{ existing_method_lists }}"
-          used_outside_aaa: "{{ external_references }}"
-          safe_to_remove: "{{ removable_method_lists }}"
+          defined: "{{ existing_method_lists | default([]) }}"
+          used_outside_aaa: "{{ external_references | default([]) }}"
+          safe_to_remove: "{{ removable_method_lists | default([]) }}"
 
     - name: Remove unused AAA method lists
-      when:
-        - cleanup_radius == 'yes'
-        - removable_method_lists | length > 0
       ios_config:
         lines:
           - "{{ method_list_lines[item] }}"
-      loop: "{{ removable_method_lists }}"
+      loop: "{{ removable_method_lists | default([]) }}"
+      when:
+        - cleanup_radius == 'yes'
+        - removable_method_lists | length > 0
 
     # Clean up servers
     ##########################################################
