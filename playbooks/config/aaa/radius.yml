@@ -513,6 +513,11 @@
       when:
         - cleanup_radius == 'yes'
 
+    - debug:
+        msg:
+          existing: "{{ existing_method_lists }}"
+  
+
     - name: Build dict of method list -> its AAA lines
       set_fact:
         method_list_lines: >-
