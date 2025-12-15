@@ -504,18 +504,6 @@
             | list
           }}
 
-    - name: Find all AAA method lists
-      when: cleanup_radius == 'yes'
-      set_fact:
-        existing_method_lists: >-
-          {{
-            (aaa_reference_lines.stdout[0] + aaa_reference_lines.stdout[1] + aaa_reference_lines.stdout[2])
-            | regex_findall('aaa (authentication|authorization|accounting) \\S+ (\\S+)')
-            | map('last')
-            | unique
-            | list
-          }}
-
     - name: Determine unused method lists (non-default)
       when: cleanup_radius == 'yes'
       set_fact:
