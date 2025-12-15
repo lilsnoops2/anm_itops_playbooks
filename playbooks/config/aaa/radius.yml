@@ -422,9 +422,9 @@
         referenced_radius_groups: >-
           {{
             (aaa_reference_lines.stdout[0] + aaa_reference_lines.stdout[1] + aaa_reference_lines.stdout[2])
-            | map('regex_findall', 'group (\\S+)')  # returns list of matches per line
-            | flatten                              # flatten list of lists into single list
-            | select('string')                     # remove empty matches
+            | map('regex_findall', 'group (\\S+)')
+            | flatten
+            | select('string')
             | unique
             | list
           }}
