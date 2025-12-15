@@ -505,7 +505,7 @@
           {{
             rc.stdout[0]
             | regex_findall('^\\s*aaa (?:authentication|authorization|accounting) \\S+ (\\S+)', multiline=True)
-            | reject('equalto', 'default')  # exclude default
+            | reject('equalto', 'default')
             | unique
             | list
           }}
