@@ -385,24 +385,23 @@
             | map('regex_findall', '^aaa\s+(?:authentication|authorization|accounting)\s+\S+\s+(\S+)')
             | flatten
             | reject('equalto', 'default')
+            | reject('in', ['console','1','5','15','newinfo'])
             | unique
             | list
           }}
       when:
         - cleanup_radius == 'yes'
 
-
     - debug:
         msg:
           existing: "{{ existing_method_lists }}"
   
-
     - name: Build dict of method list -> its AAA lines
       set_fact:
-        method_list_lines: >-
-          {{
-            existing_method_lists | items2dict(key_name='item', value_name='lines')
-          }}
+        method_list_lines: "{{ method_list_lines | default({}) | combine({ item: rc.stdout[0].splitlines() | select('search', item) | list }) }}"
+      loop: "{{ existing_method_lists }}"
+      loop_control:
+        loop_var: item
       when:
         - cleanup_radius == 'yes'
 
