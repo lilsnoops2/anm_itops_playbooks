@@ -360,7 +360,7 @@
       ios_command:
         commands:
           - "show running-config | include ^radius server"
-          - "show running-config | include ^aaa group server radius"
+          - "show running-config | include aaa group server radius"
           - "show running-config | section ^aaa server radius dynamic-author"
           - "show running-config | include ^aaa authentication "
           - "show running-config | include ^aaa authorization "
@@ -497,7 +497,7 @@
       set_fact:
         existing_method_lists: >-
           {{
-            (aaa_reference_lines.stdout[0] + aaa_reference_lines.stdout[1] + aaa_reference_lines.stdout[2])
+            (cleanup_cfg.stdout[3] + cleanup_cfg.stdout[4] + cleanup_cfg.stdout[5])
             | regex_findall('aaa (authentication|authorization|accounting) \\S+ (\\S+)')
             | map('last')
             | unique
