@@ -380,6 +380,11 @@
         existing_radius_server_names: >-
           {{ cleanup_cfg.stdout[0] | regex_findall('^radius server (\\S+)', multiline=True) }}
 
+    - debug:
+        msg:
+          existing: "{{ existing_radius_server_names }}"
+          desired: "{{ desired_radius_server_names }}"
+
     - name: Determine unused radius servers
       when: cleanup_radius == 'yes'
       set_fact:
