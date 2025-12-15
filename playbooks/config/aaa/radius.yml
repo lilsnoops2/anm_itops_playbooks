@@ -387,12 +387,12 @@
       when:
         - cleanup_radius == 'yes'
 
-    - name: Extract defined AAA method lists
+    - name: Extract defined AAA method lists safely
       set_fact:
         existing_method_lists: >-
           {{
             aaa_lines
-            | map('regex_search', '^aaa (authentication|authorization|accounting).*? (\\S+)', '\\2')
+            | map('regex_search', '^aaa (authentication|authorization|accounting).*? (\S+)', '\\2')
             | select('string')
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
