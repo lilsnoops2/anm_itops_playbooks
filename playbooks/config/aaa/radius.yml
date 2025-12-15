@@ -357,18 +357,17 @@
     # 6. Optional Cleanup
     ##########################################################
 
-    - name: Gather RADIUS & AAA state for cleanup (single ios_command)
+    - name: Gather full running-config once (cleanup)
       when: cleanup_radius == 'yes'
       ios_command:
         commands:
-          - "show running-config | include ^ *radius server "
-          - "show running-config | include ^ *aaa group server radius "
-          - "show running-config | include ^ *aaa authentication "
-          - "show running-config | include ^ *aaa authorization "
-          - "show running-config | include ^ *aaa accounting "
-          - "show running-config | include ^ *aaa server radius dynamic-author"
-          - "show running-config | include ^ *client "
+          - "show running-config"
       register: cleanup_state
+
+    - name: Set running-config fact
+      when: cleanup_radius == 'yes'
+      set_fact:
+        rc: "{{ cleanup_state.stdout[0] }}"
 
 
     - name: Build existing radius server name→IP map
@@ -377,13 +376,13 @@
         existing_radius_name_ip_map: >-
           {{
             dict(
-              cleanup_state.stdout[0]
-              | regex_findall(
-                  'radius server (\\S+)[\\s\\S]*?address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+)',
-                  multiline=True
-                )
+              rc | regex_findall(
+                'radius server (\\S+)\\n(?: .+\\n)*? address ipv4 (\\d+\\.\\d+\\.\\d+\\.\\d+)',
+                multiline=True
+              )
             )
           }}
+
 
     - name: Determine unused radius servers
       when: cleanup_radius == 'yes'
@@ -416,25 +415,23 @@
       set_fact:
         existing_radius_groups: >-
           {{
-            cleanup_state.stdout[1]
-            | regex_findall('aaa group server radius (\\S+)', multiline=True)
-            | unique
-            | list
+            rc | regex_findall(
+              'aaa group server radius (\\S+)',
+              multiline=True
+            ) | unique | list
           }}
+
 
     - name: Build referenced radius group list
       when: cleanup_radius == 'yes'
       set_fact:
         referenced_radius_groups: >-
           {{
-            (cleanup_state.stdout[2]
-            + cleanup_state.stdout[3]
-            + cleanup_state.stdout[4])
-            | regex_findall('group (\\S+)', multiline=True)
-            | unique
-            | list
+            rc | regex_findall(
+              'group (\\S+)',
+              multiline=True
+            ) | unique | list
           }}
-
 
     - name: Determine unused radius groups
       when: cleanup_radius == 'yes'
@@ -467,12 +464,11 @@
       set_fact:
         existing_coa_ips: >-
           {{
-            cleanup_state.stdout[6]
-            | regex_findall('client (\\d+\\.\\d+\\.\\d+\\.\\d+)', multiline=True)
-            | unique
-            | list
+            rc | regex_findall(
+              'aaa server radius dynamic-author[\\s\\S]*?client (\\d+\\.\\d+\\.\\d+\\.\\d+)',
+              multiline=True
+            ) | unique | list
           }}
-
 
     - name: Determine unused CoA clients
       when: cleanup_radius == 'yes'
@@ -504,30 +500,24 @@
       set_fact:
         existing_method_lists: >-
           {{
-            (cleanup_state.stdout[2]
-            + cleanup_state.stdout[3]
-            + cleanup_state.stdout[4])
-            | regex_findall('aaa (authentication|authorization|accounting) \\S+ (\\S+)', multiline=True)
-            | map('last')
-            | unique
-            | list
+            rc | regex_findall(
+              'aaa (authentication|authorization|accounting) \\S+ (\\S+)',
+              multiline=True
+            ) | map('last') | unique | list
           }}
+
 
     - name: Build referenced AAA method lists
       when: cleanup_radius == 'yes'
       set_fact:
         referenced_method_lists: >-
           {{
-            cleanup_state.stdout[0]
-            + cleanup_state.stdout[1]
-            + cleanup_state.stdout[2]
-            + cleanup_state.stdout[3]
-            + cleanup_state.stdout[4]
-            | regex_findall('(authentication|authorization|accounting) \\S+ (\\S+)', multiline=True)
-            | map('last')
-            | unique
-            | list
+            rc | regex_findall(
+              '(authentication|authorization|accounting) \\S+ (\\S+)',
+              multiline=True
+            ) | map('last') | unique | list
           }}
+
 
 
     - name: Determine unused AAA method lists
