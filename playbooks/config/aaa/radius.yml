@@ -374,17 +374,19 @@
       set_fact:
         desired_radius_server_names: "{{ servers_with_names | map(attribute='server_name') | list }}"
 
-    - name: Build existing radius server name list
+    - name: Determine unused radius servers (IP-safe)
+      when: cleanup_radius == 'yes'
       set_fact:
-        existing_radius_server_names: >-
-          {{ radius_server_lines.stdout[0]
-            | regex_findall('^radius server (\\S+)', multiline=True)
-            | map('trim')
+        unused_radius_servers: >-
+          {{ existing_radius_map
+            | dict2items
+            | rejectattr('value', 'in', (radius_servers | map(attribute='ip') | list))
+            | map(attribute='key')
             | list }}
 
     - debug:
         msg:
-          existing: "{{ existing_radius_server_names }}"
+          existing: "{{ existing_radius_map }}"
           desired: "{{ desired_radius_server_names }}"
 
     - name: Determine unused radius servers
