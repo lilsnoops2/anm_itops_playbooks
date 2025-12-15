@@ -510,6 +510,8 @@
             | unique
             | list
           }}
+      when:
+        - cleanup_radius == 'yes'
 
     - name: Build dict of method list -> its AAA lines
       set_fact:
@@ -517,11 +519,17 @@
           {{
             existing_method_lists | items2dict(key_name='item', value_name='lines')
           }}
+      when:
+        - cleanup_radius == 'yes'
+        - existing_method_lists | length > 0
 
     - name: Capture AAA lines for each named method list
       set_fact:
         method_list_lines: "{{ method_list_lines | default({}) | combine({ item: rc.stdout[0] | regex_findall('^aaa .* ' ~ item ~ '.*') }) }}"
       loop: "{{ existing_method_lists }}"
+      when:
+        - cleanup_radius == 'yes'
+        - method_list_lines | length > 0
 
     - name: Determine which method lists are safe to remove
       set_fact:
@@ -529,7 +537,7 @@
           {{
             existing_method_lists
             | select(
-                'none',  # keep only if not found elsewhere
+                'none',
                 rc.stdout[0]
                 | regex_replace('(' + (method_list_lines[item] | join('|')) + ')', '') 
                 | regex_search(item)
@@ -539,6 +547,9 @@
       loop: "{{ existing_method_lists }}"
       loop_control:
         loop_var: item
+      when:
+        - cleanup_radius == 'yes'
+        - existing_method_lists | length > 0
 
     - name: Remove unused AAA method lists
       ios_config:
@@ -546,6 +557,9 @@
       loop: "{{ removable_method_lists }}"
       loop_control:
         loop_var: item
+      when:
+        - cleanup_radius == 'yes'
+        - removable_method_lists | length > 0
 
     - name: Report method lists that could not be removed
       debug:
@@ -554,6 +568,10 @@
       loop: "{{ existing_method_lists | difference(removable_method_lists) }}"
       loop_control:
         loop_var: item
+      when:
+        - cleanup_radius == 'yes'
+        - removable_method_lists | length > 0
+        - existing_method_lists | length > 0      
 
 
     ##########################################################
