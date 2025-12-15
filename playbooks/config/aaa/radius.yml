@@ -416,15 +416,15 @@
           }}
 
 
-    - name: Build referenced radius group list (safe)
+    - name: Build referenced radius group list (fixed)
       when: cleanup_radius == 'yes'
       set_fact:
         referenced_radius_groups: >-
           {{
-            (cleanup_cfg.stdout[3] + cleanup_cfg.stdout[4] + cleanup_cfg.stdout[5])
-            | map('regex_findall', 'group (\\S+)')
-            | map('first')
-            | select('string')
+            (aaa_reference_lines.stdout[0] + aaa_reference_lines.stdout[1] + aaa_reference_lines.stdout[2])
+            | map('regex_findall', 'group (\\S+)')  # returns list of matches per line
+            | flatten                              # flatten list of lists into single list
+            | select('string')                     # remove empty matches
             | unique
             | list
           }}
