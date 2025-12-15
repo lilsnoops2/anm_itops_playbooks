@@ -376,20 +376,21 @@
 
       # Clean up AAA Method lists
       ##########################################################
-    - name: Build list of named AAA method lists
+    - name: Build list of named AAA method lists (safe)
       set_fact:
         existing_method_lists: >-
           {{
             rc.stdout[0].splitlines()
             | map('trim')
-            | map('regex_search', '^aaa\s+(?:authentication|authorization|accounting)\s+\S+\s+(\S+)', '\\1')
-            | select('string')
+            | map('regex_findall', '^aaa\s+(?:authentication|authorization|accounting)\s+\S+\s+(\S+)')
+            | flatten
             | reject('equalto', 'default')
             | unique
             | list
           }}
       when:
         - cleanup_radius == 'yes'
+
 
     - debug:
         msg:
