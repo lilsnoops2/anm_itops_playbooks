@@ -399,6 +399,7 @@
         aaa_lines: >-
           {{
             rc.stdout[0].splitlines()
+            | map('trim')
             | select('match', '^aaa\s+')
             | select('search', '\\b' ~ item ~ '\\b')
             | list
