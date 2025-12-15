@@ -391,9 +391,9 @@
         existing_method_lists: >-
           {{
             aaa_lines
-            | map('regex_search', '^(?i)aaa\\s+(authentication|authorization|accounting)\\s+\\S+\\s+(\\S+)', '\\2', default='')
-            | reject('equalto', '') 
-            | map('lower')  
+            | map('regex_replace', '^(?i)aaa\\s+(authentication|authorization|accounting)\\s+\\S+\\s+(\\S+).*', '\\2')
+            | reject('equalto', '')
+            | map('lower')
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
             | list
@@ -437,6 +437,7 @@
       when:
         - cleanup_radius == 'yes'
         - removable_method_lists | length > 0
+
 
     # Clean up servers
     ##########################################################
