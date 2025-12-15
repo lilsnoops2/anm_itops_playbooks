@@ -361,12 +361,12 @@
       when: cleanup_radius == 'yes'
       ios_command:
         commands:
-          - "show running-config | section ^radius server"
-          - "show running-config | section ^aaa group server radius"
-          - "show running-config | section ^aaa authentication"
-          - "show running-config | section ^aaa authorization"
-          - "show running-config | section ^aaa accounting"
-          - "show running-config | section ^aaa server radius dynamic-author"
+          - "show running-config | include ^radius server"
+          - "show running-config | include ^aaa group server radius"
+          - "show running-config | include ^aaa authentication"
+          - "show running-config | include ^aaa authorization"
+          - "show running-config | include ^aaa accounting"
+          - "show running-config | include ^aaa server radius dynamic-author"
       register: cleanup_cfg
 
     - name: Build desired radius server name list
@@ -375,10 +375,12 @@
         desired_radius_server_names: "{{ servers_with_names | map(attribute='server_name') | list }}"
 
     - name: Build existing radius server name list
-      when: cleanup_radius == 'yes'
       set_fact:
         existing_radius_server_names: >-
-          {{ cleanup_cfg.stdout[0] | regex_findall('^radius server (\\S+)', multiline=True) }}
+          {{ radius_server_lines.stdout[0]
+            | regex_findall('^radius server (\\S+)', multiline=True)
+            | map('trim')
+            | list }}
 
     - debug:
         msg:
