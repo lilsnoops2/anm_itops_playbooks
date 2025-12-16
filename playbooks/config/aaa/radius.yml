@@ -390,7 +390,7 @@
       set_fact:
         existing_method_lists: >-
           {{
-            aaa_lines
+            (cleanup_cfg.stdout[3] + cleanup_cfg.stdout[4] + cleanup_cfg.stdout[5])
             | map('regex_search', '^(?:aaa (?:authentication|authorization|accounting) (?:\S+ )?(\S+))', '\\1')
             | select('string')
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
