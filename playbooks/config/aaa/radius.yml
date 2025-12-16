@@ -401,12 +401,13 @@
             | map('split')
             | selectattr('1', 'in', ['authentication', 'authorization', 'accounting'])
             | selectattr('3', 'defined')
-            | map('extract', 3)
+            | map('nth', 3)
             | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
             | list
           }}
       when: cleanup_radius == 'yes'
+
 
     - name: Build method list definition lines
       set_fact:
