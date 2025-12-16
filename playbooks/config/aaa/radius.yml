@@ -390,7 +390,7 @@
     - debug:
         msg:
           aaa_line: "{{ aaa_lines | default([]) }}"
-          non-AAA: "{{ non_aaa_lines | default([]) }}"
+          #non-AAA: "{{ non_aaa_lines | default([]) }}"
           testing: "{{ (cleanup_cfg.stdout[3] + cleanup_cfg.stdout[4] + cleanup_cfg.stdout[5]) }}"
 
     - name: Extract AAA method list names safely (token-based)
