@@ -391,14 +391,15 @@
         existing_method_lists: >-
           {{
             aaa_lines
-            | select("match", "^(aaa (authentication|authorization|accounting))") 
-            | map("regex_replace", "^aaa (authentication|authorization|accounting).*? (\S+).*", "\\2")
+            | select("match", "^(aaa (authentication|authorization|accounting))")
+            | map("regex_search", "^(?:aaa (?:authentication|authorization|accounting) (?:\S+ )?(\S+))", "\\1")
+            | select("string")
             | reject("in", ["default", "console", "1", "5", "15", "newinfo"])
             | unique
             | list
           }}
       when: cleanup_radius == 'yes'
-      
+
     - name: Find method list references outside AAA safely
       set_fact:
         external_references: >-
