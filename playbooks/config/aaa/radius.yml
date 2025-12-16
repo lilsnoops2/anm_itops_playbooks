@@ -386,6 +386,12 @@
         non_aaa_lines: "{{ config_lines | reject('match', '^(?i)aaa\\s+') | list }}"
       when: cleanup_radius == 'yes'
 
+
+    - debug:
+        msg:
+          aaa_lines: "{{ aaa_lines | default([]) }}"
+          non-AAA: "{{ non_aaa_lines | default([]) }}"
+
     - name: Extract AAA method list names safely
       set_fact:
         existing_method_lists: >-
@@ -398,6 +404,10 @@
             | list
           }}
       when: cleanup_radius == 'yes'
+
+    - debug:
+        msg:
+          existing_method_lists: "{{ existing_method_lists | default([]) }}"
 
     - name: Find method list references outside AAA safely
       set_fact:
