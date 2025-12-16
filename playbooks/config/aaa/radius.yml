@@ -405,10 +405,14 @@
         external_references: >-
           {{
             existing_method_lists
-            | select("search_in_lines", non_aaa_lines)
+            | select(
+                'in', 
+                non_aaa_lines | join('\n')
+              )
             | list
           }}
       when: cleanup_radius == 'yes' and existing_method_lists | length > 0
+
 
     - name: Determine removable method lists
       set_fact:
