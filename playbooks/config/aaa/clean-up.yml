@@ -1,0 +1,107 @@
+- name: AAA / Radius cleanup using pyATS
+  hosts: all
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ignore_method_lists:
+      - default
+      - console
+      - "1"
+      - "5"
+      - "15"
+      - newinfo
+
+  tasks:
+
+    - name: Get running config
+      ios_command:
+        commands:
+          - show running-config
+      register: run_cfg
+
+    - name: Parse running config with Genie
+      pyats_parse:
+        command: show running-config
+        output: "{{ run_cfg.stdout[0] }}"
+      register: parsed
+
+    - name: Extract AAA method list definitions
+      set_fact:
+        aaa_method_lists: >-
+          {{
+            parsed.parsed.aaa.authentication.login
+            | default({})
+            | dict2items
+            | map(attribute='key')
+            | difference(ignore_method_lists)
+          }}
+
+    - name: Extract AAA authorization method lists
+      set_fact:
+        aaa_method_lists: >-
+          {{
+            aaa_method_lists
+            + (
+              parsed.parsed.aaa.authorization.exec
+              | default({})
+              | dict2items
+              | map(attribute='key')
+              | difference(ignore_method_lists)
+            )
+          }}
+
+    - name: Extract AAA accounting method lists
+      set_fact:
+        aaa_method_lists: >-
+          {{
+            aaa_method_lists
+            + (
+              parsed.parsed.aaa.accounting
+              | default({})
+              | dict2items
+              | map(attribute='key')
+              | difference(ignore_method_lists)
+            )
+          }}
+
+    - name: Normalize method list set
+      set_fact:
+        aaa_method_lists: "{{ aaa_method_lists | unique }}"
+
+    - name: Extract non-AAA config lines
+      set_fact:
+        non_aaa_lines: >-
+          {{
+            run_cfg.stdout[0].splitlines()
+            | reject('match', '^aaa ')
+            | list
+          }}
+
+    - name: Detect method lists used outside AAA
+      set_fact:
+        used_outside_aaa: >-
+          {{
+            aaa_method_lists
+            | select(
+                'in',
+                non_aaa_lines | join(' ')
+              )
+            | list
+          }}
+
+    - name: Determine safe-to-remove method lists
+      set_fact:
+        safe_to_remove: "{{ aaa_method_lists | difference(used_outside_aaa) }}"
+
+    - name: Show results
+      debug:
+        msg:
+          defined: "{{ aaa_method_lists }}"
+          used_outside_aaa: "{{ used_outside_aaa }}"
+          safe_to_remove: "{{ safe_to_remove }}"
+
+    - name: Remove unused AAA method lists
+      ios_config:
+        lines: "{{ safe_to_remove | map('regex_replace', '^(.*)$', 'no aaa authentication login \\1') | list }}"
+      when: safe_to_remove | length > 0
