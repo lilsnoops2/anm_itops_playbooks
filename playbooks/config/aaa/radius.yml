@@ -391,10 +391,9 @@
         existing_method_lists: >-
           {{
             aaa_lines
-            | select("match", "^(aaa (authentication|authorization|accounting))")
-            | map("regex_search", "^(?:aaa (?:authentication|authorization|accounting) (?:\S+ )?(\S+))", "\\1")
-            | select("string")
-            | reject("in", ["default", "console", "1", "5", "15", "newinfo"])
+            | map('regex_search', '^(?:aaa (?:authentication|authorization|accounting) (?:\S+ )?(\S+))', '\\1')
+            | select('string')
+            | reject('in', ['default', 'console', '1', '5', '15', 'newinfo'])
             | unique
             | list
           }}
