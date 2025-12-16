@@ -406,48 +406,94 @@
           }}
       when: cleanup_radius == 'yes'
 
+    - name: Build method list definition lines
+      set_fact:
+        method_list_lines: >-
+          {{
+            dict(
+              existing_method_lists
+              | zip(
+                  existing_method_lists
+                  | map(
+                      'extract',
+                      dict(
+                        aaa_lines
+                        | select('search', ' ' ~ item ~ ' ')
+                        | list
+                      )
+                    )
+                )
+            )
+          }}
+      when: cleanup_radius == 'yes'
+
     - debug:
         msg:
           existing_method_lists: "{{ existing_method_lists | default([]) }}"
+          method_list_lines: "{{ method_list_lines | default([]) }}"
 
-    - name: Find method list references outside AAA safely
+
+    - name: Detect method list usage outside its own AAA definition
       set_fact:
-        external_references: >-
+        method_list_usage: >-
           {{
-            existing_method_lists
-            | select(
-                'in', 
-                non_aaa_lines | join('\n')
-              )
-            | list
+            dict(
+              existing_method_lists
+              | zip(
+                  existing_method_lists
+                  | map(
+                      'extract',
+                      dict(
+                        aaa_lines
+                        | difference(method_list_lines[item])
+                        | select('search', ' ' ~ item ~ ' ')
+                        | list
+                      )
+                    )
+                )
+            )
           }}
-      when: cleanup_radius == 'yes' and existing_method_lists | length > 0
+      when: cleanup_radius == 'yes'
 
-
-    - name: Determine removable method lists
+    - name: Determine removable AAA method lists
       set_fact:
         removable_method_lists: >-
           {{
-            existing_method_lists
-            | difference(external_references | default([]))
+            method_list_usage
+            | dict2items
+            | selectattr('value', 'equalto', [])
+            | map(attribute='key')
             | list
           }}
-      when: cleanup_radius == 'yes' and existing_method_lists | length > 0
+      when: cleanup_radius == 'yes'
+
+
+    - name: Build AAA removal commands
+      set_fact:
+        aaa_removal_commands: >-
+          {{
+            removable_method_lists
+            | map('extract', method_list_lines)
+            | flatten
+            | map('regex_replace', '^', 'no ')
+            | list
+          }}
+      when: cleanup_radius == 'yes'
 
     - debug:
         msg:
-          defined: "{{ existing_method_lists | default([]) }}"
-          used_outside_aaa: "{{ external_references | default([]) }}"
-          safe_to_remove: "{{ removable_method_lists | default([]) }}"
+          defined: "{{ existing_method_lists }}"
+          usage: "{{ method_list_usage }}"
+          removable: "{{ removable_method_lists }}"
+          commands: "{{ aaa_removal_commands }}"
+
 
     - name: Remove unused AAA method lists
       ios_config:
-        lines:
-          - "{{ method_list_lines[item] }}"
-      loop: "{{ removable_method_lists | default([]) }}"
+        lines: "{{ aaa_removal_commands }}"
       when:
         - cleanup_radius == 'yes'
-        - removable_method_lists | length > 0
+        - aaa_removal_commands | length > 0
 
 
     # Clean up servers
