@@ -256,8 +256,6 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                     host_vars[header] = cell_value
         inventory["_meta"]["hostvars"][hostname] = host_vars
 
-
-        print(host_vars["platform_series"])
         if host_vars["platform_series"] not in groups:
             groups[(host_vars["platform_series"])] = {"hosts": []}
         groups[(host_vars["platform_series"])]["hosts"].append(hostname)
