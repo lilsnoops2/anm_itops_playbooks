@@ -70,7 +70,7 @@
         saved_output: |
           =======================================================
           Device: {{ inventory_hostname }}
-          Timestamp: {{ lookup('pipe', 'date -u +\"%Y-%m-%d %H:%M:%S UTC\"') }}
+          Timestamp: {{ lookup('pipe', 'date -u +\"%D\"') }}
           Command: {{ command }}
           =======================================================
 
