@@ -10,7 +10,7 @@
     ansible_become_method: enable
     command: "{{ command }}"
     # Shared log file (unique per playbook run)
-    output_file: "outputs/custom_command_summary_{{ lookup('pipe', 'date +%D') }}.txt"
+    output_file: "outputs/custom_command_summary_{{ lookup('pipe', 'date +%F') }}.txt"
 
   pre_tasks:
 
