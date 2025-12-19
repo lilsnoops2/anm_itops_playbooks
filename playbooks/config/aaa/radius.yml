@@ -388,7 +388,7 @@
           Authentication: {{ auth_method_list }}
           Authorization: {{ authz_method_list }}
           Servers: {{ radius_servers | map(attribute='name') | join(', ') }}
-          Test: {{ radius-test }}
+          Test: {{ radius_test | default('Failed') }}
 
           --- radius Section ---
           {{ verify_config.stdout[0] | default('N/A') }}
