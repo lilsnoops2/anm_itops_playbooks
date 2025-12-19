@@ -382,7 +382,6 @@
       tags: validate
       ios_command:
         commands:
-          - "show running-config | section radius"
           - "show running-config | section aaa"
           - "show running-config | section line vty"
       register: verify_config
@@ -392,18 +391,15 @@
       tags: validate
       debug:
         msg: |
-          radius Configuration Verified
+          Radius Configuration Verified
           --------------------------------
           Group: {{ radius_group_name | default('N/A') }}
           Authentication: {{ auth_method_list | default('N/A') }}
           Authorization: {{ authz_method_list | default('N/A')  }}
           Test: {{ radius_test | default('Failed') }}
 
-          --- radius Section ---
+          --- AAA Section ---
           {{ verify_config.stdout[0] | default('N/A') }}
 
-          --- AAA Section ---
-          {{ verify_config.stdout[1] | default('N/A') }}
-
           --- VTY Lines Section ---
-          {{ verify_config.stdout[2] | default('N/A') }}
+          {{ verify_config.stdout[1] | default('N/A') }}
