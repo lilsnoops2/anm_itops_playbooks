@@ -361,6 +361,15 @@
           - "write memory"
       when: ansible_network_os in ['ios', 'iosxe']
 
+    - name: Test AAA Group
+      ios_command:
+        commands:
+          - "test aaa group {{ radius_group_name }} {{ ansible_user }} {{ ansible_password }} new-code"
+        wait_for:
+          - result[0] contains successfully
+      register: radius_test
+      when: ansible_network_os in ['ios', 'iosxe']
+
     - name: Verify radius and AAA configuration
       ios_command:
         commands:
@@ -379,6 +388,7 @@
           Authentication: {{ auth_method_list }}
           Authorization: {{ authz_method_list }}
           Servers: {{ radius_servers | map(attribute='name') | join(', ') }}
+          Test: {{ radius-test }}
 
           --- radius Section ---
           {{ verify_config.stdout[0] | default('N/A') }}
