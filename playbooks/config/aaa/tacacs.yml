@@ -278,6 +278,7 @@
       when: ansible_network_os in ['ios', 'iosxe']
 
     - name: Test AAA Group
+      tags: validate
       ios_command:
         commands:
           - "test aaa group {{ tacacs_group_name }} {{ ansible_user }} {{ ansible_password }} new-code"
@@ -287,6 +288,7 @@
       when: ansible_network_os in ['ios', 'iosxe']
 
     - name: Verify TACACS+ and AAA configuration
+      tags: validate
       ios_command:
         commands:
           - "show running-config | section tacacs"
@@ -296,13 +298,14 @@
       when: ansible_network_os in ['ios', 'iosxe']
 
     - name: Display verification summary
+      tags: validate
       debug:
         msg: |
           TACACS+ Configuration Verified
           --------------------------------
-          Group: {{ tacacs_group_name }}
-          Authentication: {{ auth_method_list }}
-          Authorization: {{ authz_method_list }}
+          Group: {{ tacacs_group_name | default('N/A') }}
+          Authentication: {{ auth_method_list | default('N/A') }}
+          Authorization: {{ authz_method_list | default('N/A') }}
           Servers: {{ tacacs_servers | map(attribute='name') | join(', ') }}
           Test: {{ tacacs_test | default('Failed') }}
 

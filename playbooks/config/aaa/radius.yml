@@ -362,6 +362,7 @@
       when: ansible_network_os in ['ios', 'iosxe']
 
     - name: Test AAA Group
+      tags: validate
       ios_command:
         commands:
           - "test aaa group {{ radius_group_name }} {{ ansible_user }} {{ ansible_password }} new-code"
