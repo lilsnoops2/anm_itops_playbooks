@@ -8,11 +8,11 @@
     - ./vars/aaa-servers.yml
 
   vars:
-    organization_prefix: "{{ org_prefix | default('') }}"
+    organization_prefix: "{{ org_prefix | upper | default('') }}"
     prompt_for_prefix: "{{ organization_prefix == '' }}"
-    tacacs_group_name: "{{ organization_prefix }}-tacacs"
-    auth_method_list: "{{ organization_prefix }}-authc-tacacs"
-    authz_method_list: "{{ organization_prefix }}-authz-tacacs"
+    tacacs_group_name: "{{ organization_prefix }}-TACACS"
+    auth_method_list: "{{ organization_prefix | lower }}-authc-tacacs"
+    authz_method_list: "{{ organization_prefix | lower }}-authz-tacacs"
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
@@ -73,8 +73,8 @@
     - name: Update naming convention variables
       set_fact:
         tacacs_group_name: "{{ group_name | default(organization_prefix ~ '-TACACS') }}"
-        auth_method_list: "{{ organization_prefix }}-authc"
-        authz_method_list: "{{ organization_prefix }}-authz"
+        auth_method_list: "{{ organization_prefix | lower }}-authc"
+        authz_method_list: "{{ organization_prefix | lower }}-authz"
 
     - name: Set TACACS key variable
       set_fact:
@@ -277,6 +277,15 @@
           - "write memory"
       when: ansible_network_os in ['ios', 'iosxe']
 
+    - name: Test AAA Group
+      ios_command:
+        commands:
+          - "test aaa group {{ tacacs_group_name }} {{ ansible_user }} {{ ansible_password }} new-code"
+        wait_for:
+          - result[0] contains successfully
+      register: radius_test
+      when: ansible_network_os in ['ios', 'iosxe']
+
     - name: Verify TACACS+ and AAA configuration
       ios_command:
         commands:
@@ -295,6 +304,7 @@
           Authentication: {{ auth_method_list }}
           Authorization: {{ authz_method_list }}
           Servers: {{ tacacs_servers | map(attribute='name') | join(', ') }}
+          Test: {{ tacacs_test | default('Failed') }}
 
           --- TACACS+ Section ---
           {{ verify_config.stdout[0] | default('N/A') }}
