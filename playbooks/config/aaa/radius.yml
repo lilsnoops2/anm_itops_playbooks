@@ -397,7 +397,6 @@
           Group: {{ radius_group_name | default('N/A') }}
           Authentication: {{ auth_method_list | default('N/A') }}
           Authorization: {{ authz_method_list | default('N/A')  }}
-          Servers: {{ radius_servers | map(attribute='name') | join(', ') | default('N/A') }}
           Test: {{ radius_test | default('Failed') }}
 
           --- radius Section ---
