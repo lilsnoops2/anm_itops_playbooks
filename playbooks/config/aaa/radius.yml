@@ -8,11 +8,11 @@
     - ./vars/aaa-servers.yml
 
   vars:
-    organization_prefix: "{{ org_prefix | default('') }}"
+    organization_prefix: "{{ org_prefix | upper | default('') }}"
     prompt_for_prefix: "{{ organization_prefix == '' }}"
-    radius_group_name: "{{ group_name | default(organization_prefix ~ '-radius') }}"    
-    auth_method_list: "{{ organization_prefix }}-authc"
-    authz_method_list: "{{ organization_prefix }}-authz"
+    radius_group_name: "{{ group_name | default(organization_prefix ~ '-RADIUS') }}"    
+    auth_method_list: "{{ organization_prefix | lower }}-authc-radius"
+    authz_method_list: "{{ organization_prefix | lower }}-authz-radius"
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
@@ -80,9 +80,9 @@
 
     - name: Update naming convention variables
       set_fact:
-        radius_group_name: "{{ organization_prefix }}-radius"
-        auth_method_list: "{{ organization_prefix }}-authc-radius"
-        authz_method_list: "{{ organization_prefix }}-authz-radius"
+        radius_group_name: "{{ organization_prefix }}-RADIUS"
+        auth_method_list: "{{ organization_prefix | lower }}-authc-radius"
+        authz_method_list: "{{ organization_prefix | lower }}-authz-radius"
 
     - name: Set radius key variable
       set_fact:
