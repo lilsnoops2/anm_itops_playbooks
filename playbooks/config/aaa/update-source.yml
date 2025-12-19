@@ -64,7 +64,7 @@
         lines:
           - "ip tacacs source-interface {{ source_interface }}"
 
-      - name: Save running configuration
+    - name: Save running configuration
       ios_command:
         commands:
           - "write memory"
