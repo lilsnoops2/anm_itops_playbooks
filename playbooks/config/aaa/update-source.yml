@@ -1,0 +1,67 @@
+---
+- name: Add global radius settings
+  hosts: all
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_become_password: "{{ enable | default(ansible_password) }}"
+    ansible_become: true
+    ansible_become_method: enable
+    source_interface: "{{ int }}"
+
+
+  pre_tasks:
+
+    - name: Prompt for username
+      pause:
+        prompt: "Enter username"
+        echo: yes
+      register: user_input
+      when: ansible_user is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Prompt for password
+      pause:
+        prompt: "Enter password"
+        echo: no
+      register: pass_input
+      when: ansible_password is not defined
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set username from prompt
+      set_fact:
+        ansible_user: "{{ user_input.user_input }}"
+      when: user_input is defined and user_input.user_input is defined
+
+    - name: Set password from prompt
+      set_fact:
+        ansible_password: "{{ pass_input.user_input }}"
+      when: pass_input is defined and pass_input.user_input is defined
+
+    - name: Set source int from prompt
+      set_fact:
+        source_interface: "{{ source_input.user_input }}"
+      when: source_input is defined and source_input.user_input is defined
+
+
+  tasks:
+    - name: Set RADIUS source
+      tags: radius
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines:
+          - "ip radius source-interface {{ source_interface }}"
+      ignore_errors: true
+
+    - name: Set RADIUS source
+      tags: tacacs
+      when: 
+        - ansible_network_os in ['ios', 'iosxe']
+      ios_config:
+        lines:
+          - "ip tacacs source-interface {{ source_interface }}"
+      ignore_errors: true
