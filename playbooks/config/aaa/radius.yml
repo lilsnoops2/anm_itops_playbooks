@@ -360,6 +360,9 @@
         commands:
           - "write memory"
       when: ansible_network_os in ['ios', 'iosxe']
+      vars:
+        ansible_command_timeout: 120
+        ansible_connect_timeout: 120
 
     - name: Test AAA Group
       tags: validate
@@ -370,8 +373,13 @@
           - result[0] contains successfully
       register: radius_test
       when: ansible_network_os in ['ios', 'iosxe']
+      vars:
+        ansible_command_timeout: 120
+        ansible_connect_timeout: 120
+
 
     - name: Verify radius and AAA configuration
+      tags: validate
       ios_command:
         commands:
           - "show running-config | section radius"
@@ -381,14 +389,15 @@
       when: ansible_network_os in ['ios', 'iosxe']
 
     - name: Display verification summary
+      tags: validate
       debug:
         msg: |
           radius Configuration Verified
           --------------------------------
-          Group: {{ radius_group_name }}
-          Authentication: {{ auth_method_list }}
-          Authorization: {{ authz_method_list }}
-          Servers: {{ radius_servers | map(attribute='name') | join(', ') }}
+          Group: {{ radius_group_name | default('N/A') }}
+          Authentication: {{ auth_method_list | default('N/A') }}
+          Authorization: {{ authz_method_list | default('N/A')  }}
+          Servers: {{ radius_servers | map(attribute='name') | join(', ') | default('N/A') }}
           Test: {{ radius_test | default('Failed') }}
 
           --- radius Section ---

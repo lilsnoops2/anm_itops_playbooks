@@ -276,6 +276,9 @@
         commands:
           - "write memory"
       when: ansible_network_os in ['ios', 'iosxe']
+      vars:
+        ansible_command_timeout: 120
+        ansible_connect_timeout: 120
 
     - name: Test AAA Group
       tags: validate
@@ -286,6 +289,10 @@
           - result[0] contains successfully
       register: radius_test
       when: ansible_network_os in ['ios', 'iosxe']
+      vars:
+        ansible_command_timeout: 120
+        ansible_connect_timeout: 120
+
 
     - name: Verify TACACS+ and AAA configuration
       tags: validate
