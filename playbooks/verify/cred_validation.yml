@@ -38,12 +38,13 @@
         loop_var: cred
       when: not device_result.success
 
-    - name: Final output for device
-      debug:
-        msg: >-
-          {{ inventory_hostname }} →
-          {% if device_result.success %}
-            SUCCESS using {{ device_result.using_cred }}
-          {% else %}
-            FAILED (no credential sets worked)
-          {% endif %}
+
+    - name: Final result
+      block:
+        - debug:
+            msg: "{{ inventory_hostname }} → SUCCESS using {{ device_result.using_cred }}"
+          when: device_result.success
+
+        - fail:
+            msg: "{{ inventory_hostname }} → FAILED (no credential sets worked)"
+          when: not device_result.success

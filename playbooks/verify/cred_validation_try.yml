@@ -86,17 +86,6 @@
           using_cred: "{{ cred.name }}"
       when: test_result is defined and not (test_result.failed | default(false))
 
-
-    - name: Final result
-      block:
-        - debug:
-            msg: "{{ inventory_hostname }} → SUCCESS using {{ device_result.using_cred }}"
-          when: device_result.success
-
-        - fail:
-            msg: "{{ inventory_hostname }} → FAILED (no credential sets worked)"
-          when: not device_result.success
-
   rescue:
     - debug:
         msg: "Credential set {{ cred.name }} failed."
