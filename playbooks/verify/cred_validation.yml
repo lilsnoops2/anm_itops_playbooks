@@ -37,6 +37,7 @@
       loop_control:
         loop_var: cred
       when: not device_result.success
+      no_log: true
 
 
     - name: Final result
