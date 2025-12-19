@@ -140,9 +140,9 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                             host_vars["platform_series"] = "c3560x"
                         else:
                             host_vars["platform_series"] = "c3560"
-                    elif any(x in cell_value for x in ("9200","lite")):
+                    elif any(x in cell_value for x in ("9200","lite","cat9k")):
                         host_vars["platform_series"] = "c9200l"
-                    elif any(x in cell_value for x in ("9300", "9400", "9500", "9600", "9407", "9410")):
+                    elif any(x in cell_value for x in ("9300", "9400", "9500", "9600", "9407", "9410", "cat9k")):
                         host_vars["platform_series"] = "c9000"
                     elif any(x in cell_value for x in ("3650", "3850")):
                         host_vars["platform_series"] = "cat3k"
@@ -236,12 +236,12 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                             host_vars["platform_series"] = cell_value
                     elif any(x in cell_value for x in ("fgt","fort")):
                         host_vars["platform_series"] = cell_value
-                    elif any(x in cell_value for x in ("sonic","sonicwall")):
+                    elif any(x in cell_value for x in ("dell",)):
                         if re.search(r"41\d\b", cell_value):
                             host_vars["platform_series"] = "dell4100"
                         else:
                             host_vars["platform_series"] = "dell"
-                    elif any(x in cell_value for x in ("dell",)):
+                    elif any(x in cell_value for x in ("sonic","sonicwall")):
                         if re.search(r"46\d\b", cell_value):
                             host_vars["platform_series"] = "nsa4600"
                         host_vars["platform_series"] = cell_value
