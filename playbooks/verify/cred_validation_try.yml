@@ -1,0 +1,91 @@
+---
+
+- name: Test credential set {{ cred.name }}
+  block:
+
+    - name: Apply credential set
+      set_fact:
+        ansible_user: "{{ cred.username }}"
+        ansible_password: "{{ cred.password }}"
+        ansible_become_password: "{{ cred.password }}"
+
+    - name: Test connectivity
+      block:
+
+        - name: IOS / IOS-XE test
+          ios_command:
+            commands: ["show version"]
+          when: ansible_network_os in ["ios", "iosxe"]
+          register: test_result
+
+        - name: ASA test
+          asa_command:
+            commands: ["show version"]
+          when: ansible_network_os == "asa"
+          register: test_result
+
+        - name: NXOS test
+          nxos_command:
+            commands: ["show version"]
+          when: ansible_network_os == "nxos"
+          register: test_result
+
+        - name: IOS-XR test
+          iosxr_command:
+            commands: ["show version"]
+          when: ansible_network_os == "iosxr"
+          register: test_result
+
+        - name: FMC HTTPS test
+          uri:
+            url: "https://{{ ansible_host }}/login.cgi"
+            method: POST
+            body_format: form-urlencoded
+            body:
+              username: "{{ ansible_user }}"
+              password: "{{ ansible_password }}"
+            validate_certs: no
+            status_code: [302]
+          when: ansible_network_os == "fmcansible"
+          register: test_result
+
+        - name: ISE HTTPS test
+          uri:
+            url: "https://{{ ansible_host }}/admin/login.jsp"
+            method: POST
+            body_format: form-urlencoded
+            body:
+              j_username: "{{ ansible_user }}"
+              j_password: "{{ ansible_password }}"
+            validate_certs: no
+            status_code: [302]
+          when: ansible_network_os == "ise"
+          register: test_result
+
+        - name: PAN-OS GUI test
+          uri:
+            url: "https://{{ ansible_host }}/api/?type=op&cmd=<show><system><info></info></system></show>"
+            method: GET
+            user: "{{ ansible_user }}"
+            password: "{{ ansible_password }}"
+            force_basic_auth: yes
+            validate_certs: no
+            status_code: [200]
+          when: ansible_network_os == "panos"
+          register: test_result
+
+      rescue:
+        - set_fact:
+            test_result:
+              failed: true
+
+    - name: Mark success if device responded
+      set_fact:
+        device_result:
+          success: true
+          using_cred: "{{ cred.name }}"
+      when: test_result is defined and not test_result.failed
+
+  rescue:
+    - debug:
+        msg: "Credential set {{ cred.name }} failed."
