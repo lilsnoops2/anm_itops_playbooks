@@ -84,7 +84,7 @@
         device_result:
           success: true
           using_cred: "{{ cred.name }}"
-      when: test_result is defined and not test_result.failed
+      when: test_result is defined and not (test_result.failed | default(false))
 
   rescue:
     - debug:
