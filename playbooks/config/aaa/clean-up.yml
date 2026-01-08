@@ -4,7 +4,8 @@
   gather_facts: no
   connection: network_cli
   vars_files:
-    - ./vars/aaa-servers.yml
+    - "{{ playbook_dir }}/vars/aaa-servers.yml"
+
 
   vars:    
     ansible_become_password: "{{ enable | default(ansible_password) }}"
@@ -20,6 +21,11 @@
 
 
   pre_tasks:
+
+    - name: Fail if aaa-servers.yml did not load
+      fail:
+        msg: "aaa-servers.yml did not load. Check vars_files path: {{ playbook_dir }}/vars/aaa-servers.yml"
+      when: radius_servers is not defined or (radius_servers | length) == 0
 
     - name: Prompt for username
       pause:
