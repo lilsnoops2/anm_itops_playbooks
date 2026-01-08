@@ -417,7 +417,11 @@
 
     - block:
 
-        - name: clean-up | Build allowed radius IP list from vars file
+        ##########################################################
+        # 1) Build allowed IP list from aaa-servers.yml
+        ##########################################################
+
+        - name: clean-up | Build allowed radius IP list
           set_fact:
             allowed_radius_ips: >-
               {{
@@ -429,41 +433,53 @@
                 | list
               }}
 
-        - name: clean-up | Build list of configured radius servers (name/ip)
-          set_fact:
-            configured_radius_list: "{{ (configured_radius_list | default([])) + [ {'name': item.key, 'ip': item.value} ] }}"
-          loop: "{{ existing_radius_map | default({}) | dict2items }}"
-          loop_control:
-            label: "hidden"
+        ##########################################################
+        # 2) Determine extra configured servers (by name + IP)
+        #    Source of truth: existing_radius_map (name -> ip)
+        ##########################################################
 
-        - name: clean-up | Determine radius servers to remove
+        - name: clean-up | Compute extra configured radius servers
           set_fact:
-            radius_servers_to_remove: >-
+            radius_names_to_remove: >-
               {{
-                (configured_radius_list | default([]))
-                | rejectattr('ip', 'in', allowed_radius_ips | default([]))
+                (existing_radius_map | default({}) | dict2items)
+                | rejectattr('value', 'in', allowed_radius_ips)
+                | map(attribute='key')
                 | list
               }}
-            radius_names_to_remove: "{{ radius_servers_to_remove | map(attribute='name') | unique | list }}"
-            radius_ips_to_remove: "{{ radius_servers_to_remove | map(attribute='ip') | unique | list }}"
+            radius_ips_to_remove: >-
+              {{
+                (existing_radius_map | default({}) | dict2items)
+                | rejectattr('value', 'in', allowed_radius_ips)
+                | map(attribute='value')
+                | list
+              }}
 
-        - name: clean-up | Gather current radius groups
+        ##########################################################
+        # 3) Gather ALL radius groups (not just the managed one)
+        ##########################################################
+
+        - name: clean-up | Gather radius groups
           ios_command:
             commands:
               - "show running-config | section ^aaa group server radius"
-          register: radius_group_cfg
+          register: cleanup_radius_groups
 
         - name: clean-up | Parse radius group names
           set_fact:
             radius_groups_configured: >-
               {{
-                (radius_group_cfg.stdout[0] | default(''))
+                (cleanup_radius_groups.stdout[0] | default(''))
                 | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)')
                 | unique
                 | list
               }}
 
-        - name: clean-up | Build unlink lines
+        ##########################################################
+        # 4) Build unlink commands (unlink FIRST)
+        ##########################################################
+
+        - name: clean-up | Build unlink commands
           set_fact:
             radius_unlink_lines: "{{ (radius_unlink_lines | default([])) + unlink_cmds }}"
           loop: "{{ radius_groups_configured }}"
@@ -480,6 +496,24 @@
                 if (radius_names_to_remove | length > 0)
                 else []
               }}
+
+        ##########################################################
+        # 5) Show plan (always visible before changes)
+        ##########################################################
+
+        - name: clean-up | Show unlink/delete plan
+          debug:
+            msg:
+              allowed_radius_ips: "{{ allowed_radius_ips }}"
+              existing_radius_map: "{{ existing_radius_map }}"
+              radius_groups_configured: "{{ radius_groups_configured }}"
+              radius_names_to_remove: "{{ radius_names_to_remove }}"
+              radius_ips_to_remove: "{{ radius_ips_to_remove }}"
+              radius_unlink_lines: "{{ radius_unlink_lines | default([]) }}"
+
+        ##########################################################
+        # 6) APPLY: unlink, then delete
+        ##########################################################
 
         - name: clean-up | Unlink extra servers from groups
           ios_config:
