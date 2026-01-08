@@ -743,7 +743,7 @@
           set_fact:
             coa_client_ips_configured: []
 
-        - name: clean-up | Parse configured COA client IPs (token-based)
+        - name: clean-up | Parse configured COA client IPs (token-based, fixed order)
           set_fact:
             coa_client_ips_configured: >-
               {{
@@ -755,14 +755,15 @@
                   | split(' client ')
                   | map('trim')
                   | reject('equalto', '')
-                  | reject('equalto', 'aaa')
                   | map('split')
                   | map('first')
+                  | select('match', '^\\d+\\.\\d+\\.\\d+\\.\\d+$')
                   | list
                 )
                 | unique
                 | list
               }}
+
 
         - name: clean-up | Normalize COA client IP list
           set_fact:
