@@ -63,6 +63,12 @@
         run_text: "{{ run_cfg.stdout[0] | replace('\r','') }}"
         run_lines: "{{ (run_cfg.stdout[0] | replace('\r','')).splitlines() }}"
 
+    - debug:
+        msg:
+          run_len: "{{ run_text | length }}"
+          radius_server_lines: "{{ (run_lines | select('match','^\\s*radius\\s+server\\s+') | list)[:20] }}"
+
+
    # ------------------------------------------------------------
 # STEP 1: Remove RADIUS servers (by IP) that are configured but not in aaa-servers.yml
 #         Unlink from groups first, then delete server objects
@@ -89,6 +95,14 @@
             | list
           }}
 
+    - name: Initialize working lists
+      set_fact:
+        configured_radius_map: []
+        radius_unlink_lines: []
+        radius_groups_configured: []
+        radius_server_names_configured: []
+
+
     - name: Build map of configured radius servers (name -> ip)
       set_fact:
         configured_radius_map: "{{ configured_radius_map | default([]) + [ { 'name': item, 'ip': ip_found } ] }}"
@@ -114,7 +128,8 @@
 
     - name: Drop radius server objects where IP could not be parsed
       set_fact:
-        configured_radius_map: "{{ configured_radius_map | rejectattr('ip', 'equalto', '') | list }}"
+        configured_radius_map: "{{ (configured_radius_map | default([])) | rejectattr('ip', 'equalto', '') | list }}"
+
 
     - name: Compute radius servers to remove (IP not in aaa-servers.yml)
       set_fact:
