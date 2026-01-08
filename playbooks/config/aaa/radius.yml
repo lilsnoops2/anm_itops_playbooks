@@ -718,20 +718,20 @@
           set_fact:
             coa_client_ips_configured: []
 
-        - name: clean-up | Extract COA client IPs (loop + regex_search)
+        - name: clean-up | Extract COA client IPs (string-safe)
           set_fact:
-            coa_client_ips_configured: "{{ coa_client_ips_configured + [ip] }}"
+            coa_client_ips_configured: "{{ coa_client_ips_configured + [ extracted_ip ] }}"
           vars:
-            ip: "{{ line | regex_search('client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)', '\\1') }}"
+            extracted_ip: "{{ line | regex_replace('^.*\\bclient\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+).*$','\\1') }}"
           loop: "{{ (coa_cfg.stdout[0] | default('') | regex_replace('\r','') | split('\n')) }}"
           loop_control:
             loop_var: line
             label: "hidden"
-          when: ip is not none and ip != ''
+          when: line is search('\\bclient\\s+\\d+\\.\\d+\\.\\d+\\.\\d+\\b')
 
-        - name: clean-up | De-duplicate COA client IPs
+        - name: clean-up | Normalize COA client IP list
           set_fact:
-            coa_client_ips_configured: "{{ coa_client_ips_configured | unique | list }}"
+            coa_client_ips_configured: "{{ coa_client_ips_configured | flatten | unique | list }}"
 
         - name: clean-up | Debug COA parsed IPs
           debug:
@@ -756,7 +756,6 @@
             parents: "aaa server radius dynamic-author"
             lines: "{{ coa_client_ips_to_remove | map('regex_replace', '^(.*)$', 'no client \\1') | list }}"
           when: (coa_client_ips_to_remove | default([])) | length > 0
-
 
       tags:
         - cleanup
