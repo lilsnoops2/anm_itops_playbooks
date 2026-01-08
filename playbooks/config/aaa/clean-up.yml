@@ -94,31 +94,46 @@
     # (No DOTALL, no lookaheads, no multiline anchors)
     # ------------------------------------------------------------
 
-    - name: Extract configured RADIUS server name/IP pairs (newline-agnostic)
+    - name: Normalize radius object text (remove CR, keep LF)
       set_fact:
-        configured_radius_pairs: >-
+        radius_obj_text_norm: "{{ (radius_obj_text | default('') | string) | replace('\r','\n') }}"
+
+    - name: Split into radius server blocks using literal delimiter
+      set_fact:
+        radius_obj_blocks: "{{ radius_obj_text_norm.split('radius server ') }}"
+
+
+    - name: Initialize configured radius map
+      set_fact:
+        configured_radius_map: []
+
+    - name: Build configured radius map from split blocks
+      set_fact:
+        configured_radius_map: "{{ configured_radius_map + ([ {'name': srv_name, 'ip': srv_ip} ] if (srv_name != '' and srv_ip != '') else []) }}"
+      loop: "{{ radius_obj_blocks[1:] | default([]) }}"
+      loop_control:
+        loop_var: blk
+      vars:
+        srv_name: "{{ (blk.splitlines()[0] | default('')) | trim }}"
+        # Find the first IPv4 in a line containing "address ipv4"
+        srv_ip: >-
           {{
-            radius_obj_text
-            | regex_findall(
-                'radius\\s+server\\s+(\\S+)(?:\\s|\\n|\\r)*address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b'
-              )
+            (
+              (blk | regex_findall('address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})'))
+              | first
+              | default('')
+            )
           }}
-
-    - name: Debug extracted pairs count
-      debug:
-        msg:
-          pairs_count: "{{ configured_radius_pairs | length }}"
-          pairs: "{{ configured_radius_pairs }}"
-
-
-    - name: Build configured radius map from pairs
-      set_fact:
-        configured_radius_map: "{{ (configured_radius_map | default([])) + [ {'name': item.0, 'ip': item.1} ] }}"
-      loop: "{{ configured_radius_pairs | default([]) }}"
 
     - name: Normalize configured radius map
       set_fact:
-        configured_radius_map: "{{ configured_radius_map | default([]) | unique | list }}"
+        configured_radius_map: "{{ configured_radius_map | unique | list }}"
+
+    - name: Debug configured radius map
+      debug:
+        msg:
+          map_count: "{{ configured_radius_map | length }}"
+          configured_radius_map: "{{ configured_radius_map }}"
 
     # ------------------------------------------------------------
     # Parse RADIUS group blocks without DOTALL:
@@ -129,51 +144,35 @@
     # across newlines; it uses explicit "\n" pieces.
     # ------------------------------------------------------------
 
-    - name: Extract configured RADIUS group names
+    - name: Normalize radius group text
       set_fact:
-        radius_groups_configured: >-
-          {{
-            radius_group_text
-            | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b')
-            | unique
-            | list
-          }}
+        radius_group_text_norm: "{{ (radius_group_text | default('') | string) | replace('\r','\n') }}"
 
-    - name: Initialize group_members
+    - name: Split into radius group blocks
       set_fact:
+        radius_group_blocks: "{{ radius_group_text_norm.split('aaa group server radius ') }}"
+
+
+    - name: Initialize group_members and group list
+      set_fact:
+        radius_groups_configured: []
         group_members: {}
 
-    - name: Build group_members map (group -> server names) without DOTALL
+    - name: Build group_members from split group blocks
       set_fact:
-        group_members: "{{ group_members | combine({ grp: servers }, recursive=True) }}"
-      loop: "{{ radius_groups_configured }}"
+        radius_groups_configured: "{{ radius_groups_configured + ([grp] if grp != '' else []) }}"
+        group_members: "{{ group_members | combine({ grp: members }, recursive=True) if grp != '' else group_members }}"
+      loop: "{{ radius_group_blocks[1:] | default([]) }}"
       loop_control:
-        loop_var: grp
+        loop_var: gblk
       vars:
-        # grab everything from "aaa group server radius <grp>" up to next "aaa group server radius"
-        # using [^] style via explicit whitespace/newline consumption is annoying, so we do:
-        # find all server name lines AFTER the group header, then stop at the next group header by splitting.
-        grp_text: >-
-          {{
-            (radius_group_text | regex_replace('(?s).*aaa\\s+group\\s+server\\s+radius\\s+' ~ grp ~ '\\b', ''))
-            | default('')
-          }}
-        # safer: just find all server name lines in the whole text and we’ll filter by group via "context"
-        # BUT easiest approach: use a regex that captures within a group by consuming anything that is NOT a group header.
-        servers: >-
-          {{
-            (
-              radius_group_text
-              | regex_findall(
-                  'aaa\\s+group\\s+server\\s+radius\\s+' ~ grp ~ '\\b(?:\\s|\\n|\\r)*((?:server\\s+name\\s+\\S+(?:\\s|\\n|\\r)*)*)'
-                )
-              | first
-              | default('')
-              | regex_findall('server\\s+name\\s+(\\S+)')
-              | unique
-              | list
-            )
-          }}
+        grp: "{{ (gblk.splitlines()[0] | default('')) | trim }}"
+        members: "{{ (gblk | regex_findall('server\\s+name\\s+(\\S+)')) | unique | list }}"
+
+    - name: Normalize group list
+      set_fact:
+        radius_groups_configured: "{{ radius_groups_configured | unique | list }}"
+
 
 
     # ------------------------------------------------------------
