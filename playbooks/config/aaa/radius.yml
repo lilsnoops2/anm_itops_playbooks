@@ -714,22 +714,24 @@
               - "show running-config | section ^aaa server radius dynamic-author"
           register: coa_cfg
 
-
-        - name: clean-up | Parse configured COA client IPs (whitespace-safe)
+        - name: clean-up | Initialize COA client IP list
           set_fact:
-            coa_client_ips_configured: >-
-              {{
-                (
-                  (coa_cfg.stdout[0] | default(''))
-                  | regex_replace('\r', '')
-                  | split('\n')
-                  | select('match', '^\\s*client\\s+\\d+\\.\\d+\\.\\d+\\.\\d+\\b')
-                  | map('regex_replace', '^\\s*client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)\\b.*$', '\\1')
-                  | list
-                )
-                | unique
-                | list
-              }}
+            coa_client_ips_configured: []
+
+        - name: clean-up | Extract COA client IPs (loop + regex_search)
+          set_fact:
+            coa_client_ips_configured: "{{ coa_client_ips_configured + [ip] }}"
+          vars:
+            ip: "{{ line | regex_search('client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)', '\\1') }}"
+          loop: "{{ (coa_cfg.stdout[0] | default('') | regex_replace('\r','') | split('\n')) }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+          when: ip is not none and ip != ''
+
+        - name: clean-up | De-duplicate COA client IPs
+          set_fact:
+            coa_client_ips_configured: "{{ coa_client_ips_configured | unique | list }}"
 
         - name: clean-up | Debug COA parsed IPs
           debug:
