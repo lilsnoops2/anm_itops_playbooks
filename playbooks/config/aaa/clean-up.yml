@@ -39,22 +39,6 @@
       delegate_to: localhost
       run_once: true
     
-    - name: Prompt for organization prefix
-      run_once: true
-      delegate_to: localhost
-      pause:
-        prompt: "Enter your organization prefix (e.g., ANM, MST, LAB): "
-      register: org_prefix_input
-      when: prompt_for_prefix
-
-    - name: Prompt for radius shared secret key
-      pause:
-        prompt: "Enter radius shared secret key (will not echo):"
-        echo: no
-      register: radius_key_prompt
-      when: radius_key is not defined
-      delegate_to: localhost
-      run_once: true
 
     - name: Set username from prompt
       set_fact:
