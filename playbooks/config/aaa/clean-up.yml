@@ -85,16 +85,17 @@
           }}
 
     # ------------------------------------------------------------
-    # Parse RADIUS server objects (name + ip) WITHOUT DOTALL
+    # Parse RADIUS server objects (name + ip) using explicit \n
+    # (No DOTALL, no lookaheads, no multiline anchors)
     # ------------------------------------------------------------
 
-    - name: Extract configured RADIUS server name/IP pairs (no DOTALL needed)
+    - name: Extract configured RADIUS server name/IP pairs (explicit newline)
       set_fact:
         configured_radius_pairs: >-
           {{
             radius_obj_text
             | regex_findall(
-                'radius\\s+server\\s+(\\S+)[\\s\\S]*?address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b[\\s\\S]*?(?=radius\\s+server\\s+|$)'
+                'radius\\s+server\\s+(\\S+)\\n\\s*address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b'
               )
           }}
 
@@ -108,43 +109,43 @@
         configured_radius_map: "{{ configured_radius_map | default([]) | unique | list }}"
 
     # ------------------------------------------------------------
-    # Parse RADIUS groups + members (also no DOTALL)
+    # Parse RADIUS group blocks without DOTALL:
+    # Grab each group block as:
+    #   aaa group server radius <GROUP>\n
+    #   (zero or more " server name <X>\n" lines)
+    # This pattern does not need DOTALL because it never uses "."
+    # across newlines; it uses explicit "\n" pieces.
     # ------------------------------------------------------------
 
-    - name: Extract configured RADIUS group names
+    - name: Extract radius group blocks (explicit newline pattern)
       set_fact:
-        radius_groups_configured: >-
+        radius_group_blocks: >-
           {{
             radius_group_text
-            | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b')
-            | unique
-            | list
+            | regex_findall(
+                'aaa\\s+group\\s+server\\s+radius\\s+\\S+\\n(?:\\s*server\\s+name\\s+\\S+\\n?)*'
+              )
           }}
 
-    - name: Initialize group_members
+    - name: Initialize group_members and group list
       set_fact:
         group_members: {}
+        radius_groups_configured: []
 
     - name: Build group_members map (group -> server names)
       set_fact:
+        radius_groups_configured: "{{ (radius_groups_configured | default([])) + [grp] }}"
         group_members: "{{ group_members | combine({ grp: servers }, recursive=True) }}"
-      loop: "{{ radius_groups_configured | default([]) }}"
+      loop: "{{ radius_group_blocks | default([]) }}"
       loop_control:
-        loop_var: grp
+        loop_var: block
       vars:
-        esc_grp: "{{ grp | regex_replace('([\\\\.^$|()\\[\\]{}*+?\\\\-])', '\\\\\\1') }}"
-        grp_block: >-
-          {{
-            (
-              radius_group_text
-              | regex_findall(
-                  'aaa\\s+group\\s+server\\s+radius\\s+' ~ esc_grp ~ '\\b[\\s\\S]*?(?=aaa\\s+group\\s+server\\s+radius\\s+|$)'
-                )
-              | first
-              | default('')
-            )
-          }}
-        servers: "{{ grp_block | regex_findall('server\\s+name\\s+(\\S+)\\b') | unique | list }}"
+        grp: "{{ (block | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)') | first | default('')) }}"
+        servers: "{{ block | regex_findall('server\\s+name\\s+(\\S+)') | unique | list }}"
+
+    - name: Normalize group list
+      set_fact:
+        radius_groups_configured: "{{ radius_groups_configured | default([]) | reject('equalto','') | unique | list }}"
 
     # ------------------------------------------------------------
     # Determine which RADIUS servers must be removed (by IP)
@@ -188,7 +189,7 @@
           }}
 
     # ------------------------------------------------------------
-    # SHOW PLAN (DRY RUN OUTPUT)
+    # SHOW PLAN
     # ------------------------------------------------------------
 
     - name: Show RADIUS unlink/delete plan
