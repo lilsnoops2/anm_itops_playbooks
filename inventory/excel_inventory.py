@@ -233,9 +233,9 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                         elif any(x in cell_value for x in ("vm",)):
                             host_vars["platform_series"] = "pa-vm"
                         else:
-                            host_vars["platform_series"] = cell_value
+                            host_vars["platform_series"] = "Palo Alto"
                     elif any(x in cell_value for x in ("fgt","fort")):
-                        host_vars["platform_series"] = cell_value
+                        host_vars["platform_series"] = "Fortinet"
                     elif any(x in cell_value for x in ("dell",)):
                         if re.search(r"41\d\b", cell_value):
                             host_vars["platform_series"] = "dell4100"
@@ -244,7 +244,8 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                     elif any(x in cell_value for x in ("sonic","sonicwall")):
                         if re.search(r"46\d\b", cell_value):
                             host_vars["platform_series"] = "nsa4600"
-                        host_vars["platform_series"] = cell_value
+                        else:
+                            host_vars["platform_series"] = "SonicWall"
                     elif row[i] is None:
                         host_vars["platform_series"] = "unknown"
                     else:
