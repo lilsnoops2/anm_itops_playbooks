@@ -67,6 +67,17 @@
         aaa_text: "{{ aaa_run.stdout[0] | replace('\r','') }}"
         aaa_lines: "{{ (aaa_run.stdout[0] | replace('\r','')).splitlines() }}"
 
+    - name: is aaa-servers.yml loaded?
+      debug:
+        msg:
+          radius_servers_defined: "{{ radius_servers is defined }}"
+          radius_servers_len: "{{ (radius_servers | default([])) | length }}"
+          tacacs_servers_defined: "{{ tacacs_servers is defined }}"
+          tacacs_servers_len: "{{ (tacacs_servers | default([])) | length }}"
+          run_len: "{{ aaa_text | length }}"
+          radius_server_lines: "{{ (aaa_lines | select('match','^\\s*radius\\s+server\\s+') | list)[:20] }}"
+
+
     - name: Build allowed radius IP list from aaa-servers.yml
       set_fact:
         allowed_radius_ips: >-
