@@ -532,17 +532,6 @@
         ##########################################################
         # 7) Build unlink commands (extra + stale)
         ##########################################################
-
-        # - name: clean-up | Append unlink commands per group (zero regex)
-        #   set_fact:
-        #     radius_unlink_lines: "{{ radius_unlink_lines + ['aaa group server radius ' ~ grp] + (bad_in_group | map('string') | map('regex_replace', '^', 'no server name ') | list) }}"
-        #   loop: "{{ radius_groups_configured | default([]) }}"
-        #   loop_control:
-        #     loop_var: grp
-        #   vars:
-        #     members: "{{ group_members.get(grp, []) | default([]) }}"
-        #     bad_in_group: "{{ members | intersect((radius_names_to_remove|default([])) + (stale_group_members|default([]))) | unique | list }}"
-        #   when: bad_in_group | length > 0
           
         - name: clean-up | Build unlink ops (parents + lines)
           set_fact:
@@ -726,28 +715,28 @@
           register: coa_cfg
 
 
-        - name: clean-up | Init COA client IP list
+        - name: clean-up | Parse configured COA client IPs (whitespace-safe)
           set_fact:
-            coa_client_ips_configured: []
-
-        - name: clean-up | Parse configured COA client IPs (loop-based)
-          set_fact:
-            coa_client_ips_configured: "{{ coa_client_ips_configured + [ (line.split()[1]) ] }}"
-          loop: "{{ (coa_cfg.stdout[0] | default('') | regex_replace('\r','') | split('\n') | map('trim') | list) }}"
-          loop_control:
-            loop_var: line
-            label: "hidden"
-          when: line.startswith('client ')
-
-        - name: clean-up | Uniq COA client IP list
-          set_fact:
-            coa_client_ips_configured: "{{ coa_client_ips_configured | unique | list }}"
+            coa_client_ips_configured: >-
+              {{
+                (
+                  (coa_cfg.stdout[0] | default(''))
+                  | regex_replace('\r', '')
+                  | split('\n')
+                  | select('match', '^\\s*client\\s+\\d+\\.\\d+\\.\\d+\\.\\d+\\b')
+                  | map('regex_replace', '^\\s*client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)\\b.*$', '\\1')
+                  | list
+                )
+                | unique
+                | list
+              }}
 
         - name: clean-up | Debug COA parsed IPs
           debug:
             msg:
               coa_client_ips_configured: "{{ coa_client_ips_configured }}"
               count: "{{ coa_client_ips_configured | length }}"
+
 
         - name: clean-up | Compute COA client IPs to remove (not in allowed_radius_ips)
           set_fact:
