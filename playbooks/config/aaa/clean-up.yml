@@ -69,15 +69,8 @@
 
     - name: Normalize RADIUS config text
       set_fact:
-        radius_obj_text: "{{ rad_collect.stdout[0] | default('') | string }}"
-        radius_group_text: "{{ rad_collect.stdout[1] | default('') | string }}"
-
-    # Optional but VERY helpful: prove what separators are in the string
-    - name: Debug raw text encoding (first 400 chars)
-      debug:
-        msg:
-          radius_obj_text_json_head: "{{ (radius_obj_text[:400]) | to_json }}"
-          radius_group_text_json_head: "{{ (radius_group_text[:400]) | to_json }}"
+        radius_obj_text: "{{ rad_collect.stdout[0] | default('') | string | replace('\r','') }}"
+        radius_group_text: "{{ rad_collect.stdout[1] | default('') | string | replace('\r','') }}"
 
     - name: Build allowed radius IP list from vars
       set_fact:
@@ -92,20 +85,20 @@
           }}
 
     # ------------------------------------------------------------
-    # Parse RADIUS server objects (name + ip) WITHOUT relying on \n
+    # Parse RADIUS server objects (name + ip) WITHOUT DOTALL
     # ------------------------------------------------------------
 
-    - name: Extract configured RADIUS server name/IP pairs (separator-agnostic)
+    - name: Extract configured RADIUS server name/IP pairs (no DOTALL needed)
       set_fact:
         configured_radius_pairs: >-
           {{
-            (radius_obj_text | replace('\r','\n'))
+            radius_obj_text
             | regex_findall(
-                '(?s)radius\\s+server\\s+(\\S+).*?address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b.*?(?=radius\\s+server\\s+|\\Z)'
+                'radius\\s+server\\s+(\\S+)[\\s\\S]*?address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b[\\s\\S]*?(?=radius\\s+server\\s+|$)'
               )
           }}
 
-    - name: Build configured radius map
+    - name: Build configured radius map from pairs
       set_fact:
         configured_radius_map: "{{ (configured_radius_map | default([])) + [ {'name': item.0, 'ip': item.1} ] }}"
       loop: "{{ configured_radius_pairs | default([]) }}"
@@ -115,14 +108,14 @@
         configured_radius_map: "{{ configured_radius_map | default([]) | unique | list }}"
 
     # ------------------------------------------------------------
-    # Parse RADIUS groups and members WITHOUT relying on \n
+    # Parse RADIUS groups + members (also no DOTALL)
     # ------------------------------------------------------------
 
     - name: Extract configured RADIUS group names
       set_fact:
         radius_groups_configured: >-
           {{
-            (radius_group_text | replace('\r','\n'))
+            radius_group_text
             | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b')
             | unique
             | list
@@ -135,7 +128,7 @@
     - name: Build group_members map (group -> server names)
       set_fact:
         group_members: "{{ group_members | combine({ grp: servers }, recursive=True) }}"
-      loop: "{{ radius_groups_configured }}"
+      loop: "{{ radius_groups_configured | default([]) }}"
       loop_control:
         loop_var: grp
       vars:
@@ -143,9 +136,9 @@
         grp_block: >-
           {{
             (
-              (radius_group_text | replace('\r','\n'))
+              radius_group_text
               | regex_findall(
-                  '(?s)aaa\\s+group\\s+server\\s+radius\\s+' ~ esc_grp ~ '\\b.*?(?=aaa\\s+group\\s+server\\s+radius\\s+|\\Z)'
+                  'aaa\\s+group\\s+server\\s+radius\\s+' ~ esc_grp ~ '\\b[\\s\\S]*?(?=aaa\\s+group\\s+server\\s+radius\\s+|$)'
                 )
               | first
               | default('')
@@ -195,7 +188,7 @@
           }}
 
     # ------------------------------------------------------------
-    # SHOW PLAN
+    # SHOW PLAN (DRY RUN OUTPUT)
     # ------------------------------------------------------------
 
     - name: Show RADIUS unlink/delete plan
