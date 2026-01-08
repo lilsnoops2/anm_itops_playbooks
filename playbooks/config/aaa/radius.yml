@@ -144,17 +144,14 @@
           no_log: true
 
     - name: Build list of currently configured radius IPs
-      tags: cleanup
       set_fact:
         existing_radius_ips: "{{ existing_radius_map.values() | list }}"
 
     - name: Build servers_with_names (loop-based)
-      tags: cleanup
       set_fact:
         servers_with_names: []
 
     - name: Append server_name to each required server
-      tags: cleanup
       set_fact:
         servers_with_names: >-
           {{
@@ -417,6 +414,10 @@
 
     - block:
 
+        - name: clean-up | Initialize unlink lines
+          set_fact:
+            radius_unlink_lines: []
+
         ##########################################################
         # 1) Build allowed IP list from aaa-servers.yml
         ##########################################################
@@ -435,7 +436,6 @@
 
         ##########################################################
         # 2) Determine extra configured servers (by name + IP)
-        #    Source of truth: existing_radius_map (name -> ip)
         ##########################################################
 
         - name: clean-up | Compute extra configured radius servers
@@ -456,13 +456,13 @@
               }}
 
         ##########################################################
-        # 3) Gather ALL radius groups (not just the managed one)
+        # 3) Gather ALL radius groups
         ##########################################################
 
         - name: clean-up | Gather radius groups
           ios_command:
             commands:
-              - "show running-config | section ^aaa group server radius"
+              - "show running-config | section aaa group server radius"
           register: cleanup_radius_groups
 
         - name: clean-up | Parse radius group names
@@ -481,8 +481,8 @@
 
         - name: clean-up | Build unlink commands
           set_fact:
-            radius_unlink_lines: "{{ (radius_unlink_lines | default([])) + unlink_cmds }}"
-          loop: "{{ radius_groups_configured }}"
+            radius_unlink_lines: "{{ radius_unlink_lines + unlink_cmds }}"
+          loop: "{{ radius_groups_configured | default([]) }}"
           loop_control:
             loop_var: grp
           vars:
@@ -498,7 +498,7 @@
               }}
 
         ##########################################################
-        # 5) Show plan (always visible before changes)
+        # 5) Show plan
         ##########################################################
 
         - name: clean-up | Show unlink/delete plan
@@ -506,6 +506,7 @@
             msg:
               allowed_radius_ips: "{{ allowed_radius_ips }}"
               existing_radius_map: "{{ existing_radius_map }}"
+              cleanup_radius_groups_raw: "{{ cleanup_radius_groups.stdout[0] | default('') }}"
               radius_groups_configured: "{{ radius_groups_configured }}"
               radius_names_to_remove: "{{ radius_names_to_remove }}"
               radius_ips_to_remove: "{{ radius_ips_to_remove }}"
@@ -518,12 +519,13 @@
         - name: clean-up | Unlink extra servers from groups
           ios_config:
             lines: "{{ radius_unlink_lines }}"
-          when: radius_unlink_lines | length > 0
+          when: (radius_unlink_lines | default([])) | length > 0
 
         - name: clean-up | Delete extra radius server objects
           ios_config:
             lines: "{{ radius_names_to_remove | map('regex_replace', '^(.*)$', 'no radius server \\1') | list }}"
-          when: radius_names_to_remove | length > 0
+          when: (radius_names_to_remove | default([])) | length > 0
 
       tags:
         - cleanup
+
