@@ -175,6 +175,11 @@
           radius_names_to_remove: "{{ radius_names_to_remove }}"
           radius_unlink_lines: "{{ radius_unlink_lines | default([]) }}"
 
+    - name: Pause before changes
+      pause:
+        prompt: "About to remove radius servers. Press Enter to continue or Ctrl+C to abort."
+
+
     # SAFETY: only proceed if vars loaded and we have something to remove
     - name: Unlink bad RADIUS servers from groups (parent mode)
       ios_config:
