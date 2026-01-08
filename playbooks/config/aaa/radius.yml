@@ -23,7 +23,6 @@
     conf_login: "{{ config_login | default('no') }}"
     login_o: "{{ login_only | default('no') }}"
     conf_device_sensor: "{{ config_device_sensor | default('no') }}"
-    cleanup_radius: "{{ cleanup | default('no') }}"
 
 
   pre_tasks:
@@ -352,60 +351,6 @@
         - ansible_network_os in ['ios', 'iosxe']
         - login_o == "yes" or conf_login == "yes"
       no_log: true
-
-  
-
-    ##########################################################
-    # 6. Save and verify
-    ##########################################################
-    - name: Save running configuration
-      ios_command:
-        commands:
-          - "write memory"
-      when: ansible_network_os in ['ios', 'iosxe']
-      vars:
-        ansible_command_timeout: 120
-        ansible_connect_timeout: 120
-
-    - name: Test AAA Group
-      tags: validate
-      ios_command:
-        commands:
-          - "test aaa group {{ radius_group_name }} {{ ansible_user }} {{ ansible_password }} new-code"
-        wait_for:
-          - result[0] contains successfully
-      register: radius_test
-      when: ansible_network_os in ['ios', 'iosxe']
-      vars:
-        ansible_command_timeout: 120
-        ansible_connect_timeout: 120
-
-
-    - name: Verify radius and AAA configuration
-      tags: validate
-      ios_command:
-        commands:
-          - "show running-config | section aaa"
-          - "show running-config | section line vty"
-      register: verify_config
-      when: ansible_network_os in ['ios', 'iosxe']
-
-    - name: Display verification summary
-      tags: validate
-      debug:
-        msg: |
-          Radius Configuration Verified
-          --------------------------------
-          Group: {{ radius_group_name | default('N/A') }}
-          Authentication: {{ auth_method_list | default('N/A') }}
-          Authorization: {{ authz_method_list | default('N/A')  }}
-          Test: {{ radius_test | default('Failed') }}
-
-          --- AAA Section ---
-          {{ verify_config.stdout[0] | default('N/A') }}
-
-          --- VTY Lines Section ---
-          {{ verify_config.stdout[1] | default('N/A') }}
 
     ##########################################################
     # clean-up
@@ -782,3 +727,57 @@
 
       tags:
         - cleanup
+
+
+    ##########################################################
+    # 6. Save and verify
+    ##########################################################
+    - name: Save running configuration
+      tags: cleanup
+      ios_command:
+        commands:
+          - "write memory"
+      when: ansible_network_os in ['ios', 'iosxe']
+      vars:
+        ansible_command_timeout: 120
+        ansible_connect_timeout: 120
+
+    - name: Test AAA Group
+      tags: validate
+      ios_command:
+        commands:
+          - "test aaa group {{ radius_group_name }} {{ ansible_user }} {{ ansible_password }} new-code"
+        wait_for:
+          - result[0] contains successfully
+      register: radius_test
+      when: ansible_network_os in ['ios', 'iosxe']
+      vars:
+        ansible_command_timeout: 120
+        ansible_connect_timeout: 120
+
+
+    - name: Verify radius and AAA configuration
+      tags: validate
+      ios_command:
+        commands:
+          - "show running-config | section aaa"
+          - "show running-config | section line vty"
+      register: verify_config
+      when: ansible_network_os in ['ios', 'iosxe']
+
+    - name: Display verification summary
+      tags: validate
+      debug:
+        msg: |
+          Radius Configuration Verified
+          --------------------------------
+          Group: {{ radius_group_name | default('N/A') }}
+          Authentication: {{ auth_method_list | default('N/A') }}
+          Authorization: {{ authz_method_list | default('N/A')  }}
+          Test: {{ radius_test | default('Failed') }}
+
+          --- AAA Section ---
+          {{ verify_config.stdout[0] | default('N/A') }}
+
+          --- VTY Lines Section ---
+          {{ verify_config.stdout[1] | default('N/A') }}
