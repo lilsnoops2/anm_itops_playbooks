@@ -757,7 +757,6 @@
                   | reject('equalto', '')
                   | map('split')
                   | map('first')
-                  | select('match', '^\\d+\\.\\d+\\.\\d+\\.\\d+$')
                   | list
                 )
                 | unique
