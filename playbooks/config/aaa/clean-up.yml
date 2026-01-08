@@ -112,24 +112,26 @@
         configured_radius_map: []
         radius_unlink_lines: []
 
-    - name: Build map of configured radius servers (name -> ip) from show run aaa
+    - name: Initialize configured_radius_map
+      set_fact:
+        configured_radius_map: []
+
+    - name: Build map of configured radius servers (name -> ip) from show run aaa (hardened)
       set_fact:
         configured_radius_map: "{{ configured_radius_map + [ { 'name': item, 'ip': ip_found } ] }}"
       loop: "{{ radius_server_names_configured | default([]) }}"
       vars:
         esc_name: "{{ item | regex_replace('([\\\\.^$|()\\[\\]{}*+?\\\\-])', '\\\\\\1') }}"
-        body: >-
-          {{
-            (aaa_text
-              | regex_findall('(?ms)^\\s*radius\\s+server\\s+' ~ esc_name ~ '\\b\\s*\\n(.*?)(?=^\\S|\\Z)')
-              | first
-              | default('')
-            )
-          }}
+        # Match:
+        # radius server <NAME>
+        #  ...any lines...
+        #  address ipv4 <IP> ...
+        # Stop when we hit the next "radius server <something else>" OR end
         ip_found: >-
           {{
-            (body
-              | regex_findall('(?m)^\\s*address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b')
+            (
+              aaa_text
+              | regex_findall('(?ms)^\\s*radius\\s+server\\s+' ~ esc_name ~ '\\b.*?^\\s*address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b.*?(?=^\\s*radius\\s+server\\s+|\\Z)')
               | first
               | default('')
             )
@@ -137,7 +139,7 @@
 
     - name: Drop radius server objects where IP could not be parsed
       set_fact:
-        configured_radius_map: "{{ (configured_radius_map | default([])) | rejectattr('ip', 'equalto', '') | list }}"
+        configured_radius_map: "{{ configured_radius_map | rejectattr('ip', 'equalto', '') | list }}"
 
     - name: Compute radius servers to remove (IP not in aaa-servers.yml)
       set_fact:
