@@ -669,16 +669,17 @@
               - "show running-config | section aaa"
           register: aaa_after
 
-        - name: clean-up | Collect AAA lines that contain ' group '
+        - name: clean-up | Collect AAA METHOD lines that reference a group (exclude aaa group server)
           set_fact:
             aaa_group_lines: >-
               {{
                 (aaa_after.stdout[0] | default('')).splitlines()
                 | map('trim')
-                | select('match', '^aaa ')
+                | select('match', '^aaa (authentication|authorization|accounting) ')
                 | select('search', ' group ')
                 | list
               }}
+
 
         - name: clean-up | Compute AAA lines to remove (group missing)
           set_fact:
@@ -689,7 +690,12 @@
             label: "hidden"
           vars:
             grp: "{{ (line | regex_findall('\\bgroup\\s+(\\S+)') | first | default('')) }}"
-            remove_me: "{{ (grp | length > 0) and (grp not in (aaa_groups_existing_after | default([]))) }}"
+            remove_me: >-
+              {{
+                (grp | length > 0)
+                and (grp not in (aaa_groups_existing_after | default([])))
+                and (not line.startswith('aaa group server '))
+              }}
 
         - name: clean-up | Show AAA lines to remove (missing group)
           debug:
