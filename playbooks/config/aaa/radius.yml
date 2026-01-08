@@ -739,13 +739,13 @@
               coa_lines_count: "{{ coa_lines | length }}"
               coa_lines_first5: "{{ coa_lines[:5] }}"
 
-        - name: clean-up | Initialize COA client IP list
+        - name: clean-up | Parse configured COA client IPs (token-based, loop filter)
           set_fact:
             coa_client_ips_configured: []
 
-        - name: clean-up | Parse configured COA client IPs (token-based, fixed order)
+        - name: clean-up | Build COA token list (chunks)
           set_fact:
-            coa_client_ips_configured: >-
+            coa_tokens: >-
               {{
                 (
                   (coa_text_norm | default(''))
@@ -755,19 +755,25 @@
                   | split(' client ')
                   | map('trim')
                   | reject('equalto', '')
-                  | map('split')
-                  | map('first')
-                  | select('match', '^\\d+\\.\\d+\\.\\d+\\.\\d+$')
                   | list
                 )
-                | unique
-                | list
               }}
 
+        - name: clean-up | Extract IPv4 tokens from COA chunks
+          set_fact:
+            coa_client_ips_configured: "{{ coa_client_ips_configured + [ token ] }}"
+          vars:
+            token: "{{ (chunk.split(' ')[0] | default('')) }}"
+          loop: "{{ coa_tokens | default([]) }}"
+          loop_control:
+            loop_var: chunk
+            label: "hidden"
+          when: token is search('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
 
         - name: clean-up | Normalize COA client IP list
           set_fact:
             coa_client_ips_configured: "{{ coa_client_ips_configured | unique | list }}"
+
 
         - name: clean-up | Compute COA client IPs to remove (not in allowed_radius_ips)
           set_fact:
