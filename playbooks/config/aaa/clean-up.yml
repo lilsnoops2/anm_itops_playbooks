@@ -72,6 +72,11 @@
         radius_obj_text: "{{ rad_collect.stdout[0] | default('') | string | replace('\r','') }}"
         radius_group_text: "{{ rad_collect.stdout[1] | default('') | string | replace('\r','') }}"
 
+
+    - debug: msg="{{ radius_obj_text | regex_findall('radius') }}"
+    - debug: msg="{{ radius_obj_text | regex_findall('radius\\s+server') }}"
+
+
     - name: Build allowed radius IP list from vars
       set_fact:
         allowed_radius_ips: >-
