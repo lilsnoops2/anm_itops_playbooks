@@ -96,35 +96,31 @@
     # Convert raw output into clean line lists
     # ------------------------------------------------------------
 
-    - name: Convert radius config output to clean lines (force split)
+    - name: Convert radius config output to clean lines (regex-based)
       set_fact:
         radius_obj_lines: >-
           {{
             (radius_obj_text | string)
-            | replace('\r', '\n')
-            | split('\n')
-            | map('trim')
-            | reject('equalto', '')
+            | replace('\r', '')
+            | regex_findall('(?m)^\\s*\\S.*$')
             | list
           }}
         radius_group_lines: >-
           {{
             (radius_group_text | string)
-            | replace('\r', '\n')
-            | split('\n')
-            | map('trim')
-            | reject('equalto', '')
+            | replace('\r', '')
+            | regex_findall('(?m)^\\s*\\S.*$')
             | list
           }}
 
-    - name: Debug line counts and first few lines
+
+    - name: Debug line counts after regex split
       debug:
         msg:
           radius_obj_line_count: "{{ radius_obj_lines | length }}"
           radius_obj_first10: "{{ radius_obj_lines[:10] }}"
           radius_group_line_count: "{{ radius_group_lines | length }}"
           radius_group_first10: "{{ radius_group_lines[:10] }}"
-
 
     # ------------------------------------------------------------
     # Parse RADIUS server objects (name + IP) — line-based
@@ -147,14 +143,17 @@
                 else []
               )
           }}
-        _cur_radius_name: "{{ line.split()[2] if new_server else _cur_radius_name }}"
-        _cur_radius_ip: "{{ line.split()[2] if is_address else _cur_radius_ip }}"
+        _cur_radius_name: "{{ l.split()[2] if new_server else _cur_radius_name }}"
+        _cur_radius_ip: "{{ l.split()[2] if is_address else _cur_radius_ip }}"
+
       loop: "{{ radius_obj_lines }}"
       loop_control:
         loop_var: line
       vars:
-        new_server: "{{ line.startswith('radius server ') }}"
-        is_address: "{{ line.startswith('address ipv4 ') }}"
+        l: "{{ line | trim }}"
+        new_server: "{{ l.startswith('radius server ') }}"
+        is_address: "{{ l.startswith('address ipv4 ') }}"
+
 
     - name: Flush last parsed radius server
       set_fact:
@@ -189,10 +188,7 @@
             radius_groups_configured
             + ([ line.split()[-1] ] if line.startswith('aaa group server radius ') else [])
           }}
-        _cur_group: >-
-          {{
-            line.split()[-1] if line.startswith('aaa group server radius ') else _cur_group
-          }}
+        _cur_group: "{{ (l.split()[-1] if l.startswith('aaa group server radius ') else _cur_group) }}"
         group_members: >-
           {{
             group_members
@@ -200,9 +196,9 @@
                 (
                   {
                     _cur_group:
-                      (group_members.get(_cur_group, []) + [ line.split()[-1] ]) | unique
+                      (group_members.get(_cur_group, []) + [ l.split()[-1] ]) | unique
                   }
-                  if (line.startswith('server name ') and _cur_group != "")
+                  if (l.startswith('server name ') and _cur_group != "")
                   else {}
                 ),
                 recursive=True
