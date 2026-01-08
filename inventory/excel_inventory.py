@@ -247,9 +247,9 @@ def get_inventory(excel_filename, hostname_col, group_by_col, sheet_name=0):
                         else:
                             host_vars["platform_series"] = "SonicWall"
                     elif cell_value is None:
-                        host_vars["platform_series"] = "unknown"
+                        host_vars["platform_series"] = "unknown_model"
                     else:
-                        host_vars["platform_series"] = "unknown"
+                        host_vars["platform_series"] = "unknown_model"
                     host_vars["pid"] = cell_value
                 elif row[i] is None:
                     host_vars[header] = "unknown"
