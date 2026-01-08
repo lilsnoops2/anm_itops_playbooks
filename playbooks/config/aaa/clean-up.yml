@@ -136,14 +136,15 @@
     # Parse configured radius servers (name -> ip)
     # ------------------------
 
-    - name: Extract configured radius server names (from picked text)
+    - name: Extract configured radius server names (robust)
       set_fact:
         radius_server_names_configured: >-
           {{
-            (radius_obj_text | regex_findall('(?m)^\\s*radius\\s+server\\s+(\\S+)\\b'))
+            (radius_obj_text | regex_findall('(?:^|\\n)\\s*radius\\s+server\\s+(\\S+)\\b'))
             | unique
             | list
           }}
+
 
     - name: Initialize configured_radius_map
       set_fact:
@@ -201,14 +202,15 @@
     # Build unlink lines from groups first
     # ------------------------
 
-    - name: Find configured RADIUS group names
+    - name: Find configured RADIUS group names (robust)
       set_fact:
         radius_groups_configured: >-
           {{
-            (radius_group_text | regex_findall('(?m)^\\s*aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b'))
+            (radius_group_text | regex_findall('(?:^|\\n)\\s*aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b'))
             | unique
             | list
           }}
+
 
     - name: Initialize unlink lines
       set_fact:
