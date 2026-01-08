@@ -96,22 +96,35 @@
     # Convert raw output into clean line lists
     # ------------------------------------------------------------
 
-    - name: Convert radius config output to clean lines
+    - name: Convert radius config output to clean lines (force split)
       set_fact:
         radius_obj_lines: >-
           {{
-            radius_obj_text.split('\n')
+            (radius_obj_text | string)
+            | replace('\r', '\n')
+            | split('\n')
             | map('trim')
             | reject('equalto', '')
             | list
           }}
         radius_group_lines: >-
           {{
-            radius_group_text.split('\n')
+            (radius_group_text | string)
+            | replace('\r', '\n')
+            | split('\n')
             | map('trim')
             | reject('equalto', '')
             | list
           }}
+
+    - name: Debug line counts and first few lines
+      debug:
+        msg:
+          radius_obj_line_count: "{{ radius_obj_lines | length }}"
+          radius_obj_first10: "{{ radius_obj_lines[:10] }}"
+          radius_group_line_count: "{{ radius_group_lines | length }}"
+          radius_group_first10: "{{ radius_group_lines[:10] }}"
+
 
     # ------------------------------------------------------------
     # Parse RADIUS server objects (name + IP) — line-based
