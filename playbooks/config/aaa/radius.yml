@@ -561,6 +561,11 @@
               }}
             bad_lines: "{{ bad_in_group | map('regex_replace', '^', 'no server name ') | list }}"
 
+        - name: clean-up | Show unlink ops plan
+          debug:
+            var: radius_unlink_ops
+
+
 
         ##########################################################
         # 8) Show plan
@@ -583,8 +588,13 @@
 
         - name: clean-up | Unlink extra & stale servers from groups
           ios_config:
-            lines: "{{ radius_unlink_lines }}"
-          when: (radius_unlink_lines | length) > 0
+            parents: "{{ item.parent }}"
+            lines: "{{ item.lines }}"
+          loop: "{{ radius_unlink_ops | default([]) }}"
+          loop_control:
+            label: "{{ item.parent }}"
+          when: (radius_unlink_ops | default([])) | length > 0
+
 
         - name: clean-up | Delete extra radius server objects
           ios_config:
