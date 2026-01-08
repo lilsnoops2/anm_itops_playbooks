@@ -755,6 +755,7 @@
                   | split(' client ')
                   | map('trim')
                   | reject('equalto', '')
+                  | reject('equalto', 'aaa')
                   | map('split')
                   | map('first')
                   | list
