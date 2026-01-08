@@ -533,16 +533,33 @@
         # 7) Build unlink commands (extra + stale)
         ##########################################################
 
-        - name: clean-up | Append unlink commands per group (zero regex)
+        # - name: clean-up | Append unlink commands per group (zero regex)
+        #   set_fact:
+        #     radius_unlink_lines: "{{ radius_unlink_lines + ['aaa group server radius ' ~ grp] + (bad_in_group | map('string') | map('regex_replace', '^', 'no server name ') | list) }}"
+        #   loop: "{{ radius_groups_configured | default([]) }}"
+        #   loop_control:
+        #     loop_var: grp
+        #   vars:
+        #     members: "{{ group_members.get(grp, []) | default([]) }}"
+        #     bad_in_group: "{{ members | intersect((radius_names_to_remove|default([])) + (stale_group_members|default([]))) | unique | list }}"
+        #   when: bad_in_group | length > 0
+          
+        - name: clean-up | Build unlink ops (parents + lines)
           set_fact:
-            radius_unlink_lines: "{{ radius_unlink_lines + ['aaa group server radius ' ~ grp] + (bad_in_group | map('string') | map('regex_replace', '^', 'no server name ') | list) }}"
+            radius_unlink_ops: "{{ (radius_unlink_ops | default([])) + ([{'parent': 'aaa group server radius ' ~ grp, 'lines': bad_lines}] if (bad_lines | length > 0) else []) }}"
           loop: "{{ radius_groups_configured | default([]) }}"
           loop_control:
             loop_var: grp
           vars:
             members: "{{ group_members.get(grp, []) | default([]) }}"
-            bad_in_group: "{{ members | intersect((radius_names_to_remove|default([])) + (stale_group_members|default([]))) | unique | list }}"
-          when: bad_in_group | length > 0
+            bad_in_group: >-
+              {{
+                members
+                | intersect((radius_names_to_remove | default([])) + (stale_group_members | default([])))
+                | unique
+                | list
+              }}
+            bad_lines: "{{ bad_in_group | map('regex_replace', '^', 'no server name ') | list }}"
 
 
         ##########################################################
