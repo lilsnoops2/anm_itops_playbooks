@@ -726,29 +726,22 @@
           register: coa_cfg
 
 
-        - name: clean-up | Debug COA raw text head
-          debug:
-            msg:
-              coa_len: "{{ (coa_cfg.stdout[0] | default('')) | length }}"
-              coa_head: "{{ (coa_cfg.stdout[0] | default(''))[:250] }}"
-
-        - name: clean-up | Parse configured COA client IPs (split-based)
+        - name: clean-up | Init COA client IP list
           set_fact:
-            coa_client_ips_configured: >-
-              {{
-                (
-                  (coa_cfg.stdout[0] | default(''))
-                  | regex_replace('\r', '')
-                  | split('\n')
-                  | map('trim')
-                  | select('match', '^client\\s+')
-                  | map('split')
-                  | map('nth', 1)
-                  | list
-                )
-                | unique
-                | list
-              }}
+            coa_client_ips_configured: []
+
+        - name: clean-up | Parse configured COA client IPs (loop-based)
+          set_fact:
+            coa_client_ips_configured: "{{ coa_client_ips_configured + [ (line.split()[1]) ] }}"
+          loop: "{{ (coa_cfg.stdout[0] | default('') | regex_replace('\r','') | split('\n') | map('trim') | list) }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+          when: line.startswith('client ')
+
+        - name: clean-up | Uniq COA client IP list
+          set_fact:
+            coa_client_ips_configured: "{{ coa_client_ips_configured | unique | list }}"
 
         - name: clean-up | Debug COA parsed IPs
           debug:
