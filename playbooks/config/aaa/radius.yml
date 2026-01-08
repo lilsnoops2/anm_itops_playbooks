@@ -723,21 +723,9 @@
                 | regex_replace('\\\\n', '\n')
               }}
 
-        - name: clean-up | Debug COA normalized (head)
-          debug:
-            msg:
-              norm_head: "{{ coa_text_norm[:200] }}"
-              norm_len: "{{ coa_text_norm | length }}"
-
         - name: clean-up | Build COA lines list (normalized)
           set_fact:
             coa_lines: "{{ coa_text_norm.split('\n') }}"
-
-        - name: clean-up | Debug COA line split
-          debug:
-            msg:
-              coa_lines_count: "{{ coa_lines | length }}"
-              coa_lines_first5: "{{ coa_lines[:5] }}"
 
         - name: clean-up | Parse configured COA client IPs (token-based, loop filter)
           set_fact:
