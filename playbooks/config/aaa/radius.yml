@@ -10,7 +10,7 @@
   vars:
     organization_prefix: "{{ org_prefix | upper | default('') }}"
     prompt_for_prefix: "{{ organization_prefix == '' }}"
-    radius_group_name: "{{ group_name | default(organization_prefix ~ '-RADIUS') }}"    
+    radius_group_name: "{{ group_name | default(organization_prefix ~ '-RADIUS') }}"  
     auth_method_list: "{{ organization_prefix | lower }}-authc-radius"
     authz_method_list: "{{ organization_prefix | lower }}-authz-radius"
     ansible_become_password: "{{ enable | default(ansible_password) }}"
@@ -102,6 +102,7 @@
     ##########################################################
 
     - name: Gather current named radius servers
+      tags: cleanup
       ios_command:
         commands:
           - "show running-config | section ^radius server"
@@ -112,11 +113,13 @@
     ##########################################################
 
     - name: Initialize RADIUS server facts
+      tags: cleanup
       set_fact:
         existing_radius_map: {}
         existing_radius_keys: {}
 
     - name: Parse radius servers line-by-line
+      tags: cleanup
       vars:
         config_lines: "{{ radius_config.stdout[0].splitlines() }}"
       block:
@@ -141,14 +144,17 @@
           no_log: true
 
     - name: Build list of currently configured radius IPs
+      tags: cleanup
       set_fact:
         existing_radius_ips: "{{ existing_radius_map.values() | list }}"
 
     - name: Build servers_with_names (loop-based)
+      tags: cleanup
       set_fact:
         servers_with_names: []
 
     - name: Append server_name to each required server
+      tags: cleanup
       set_fact:
         servers_with_names: >-
           {{
@@ -403,3 +409,87 @@
 
           --- VTY Lines Section ---
           {{ verify_config.stdout[1] | default('N/A') }}
+
+    ##########################################################
+    # clean-up
+    # Unlink and remove RADIUS servers not in aaa-servers.yml
+    ##########################################################
+
+    - block:
+
+        - name: clean-up | Build allowed radius IP list from vars file
+          set_fact:
+            allowed_radius_ips: >-
+              {{
+                (radius_servers | default([]))
+                | map(attribute='ip')
+                | select('defined')
+                | map('string')
+                | unique
+                | list
+              }}
+
+        - name: clean-up | Build list of configured radius servers (name/ip)
+          set_fact:
+            configured_radius_list: "{{ (configured_radius_list | default([])) + [ {'name': item.key, 'ip': item.value} ] }}"
+          loop: "{{ existing_radius_map | default({}) | dict2items }}"
+          loop_control:
+            label: "hidden"
+
+        - name: clean-up | Determine radius servers to remove
+          set_fact:
+            radius_servers_to_remove: >-
+              {{
+                (configured_radius_list | default([]))
+                | rejectattr('ip', 'in', allowed_radius_ips | default([]))
+                | list
+              }}
+            radius_names_to_remove: "{{ radius_servers_to_remove | map(attribute='name') | unique | list }}"
+            radius_ips_to_remove: "{{ radius_servers_to_remove | map(attribute='ip') | unique | list }}"
+
+        - name: clean-up | Gather current radius groups
+          ios_command:
+            commands:
+              - "show running-config | section ^aaa group server radius"
+          register: radius_group_cfg
+
+        - name: clean-up | Parse radius group names
+          set_fact:
+            radius_groups_configured: >-
+              {{
+                (radius_group_cfg.stdout[0] | default(''))
+                | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)')
+                | unique
+                | list
+              }}
+
+        - name: clean-up | Build unlink lines
+          set_fact:
+            radius_unlink_lines: "{{ (radius_unlink_lines | default([])) + unlink_cmds }}"
+          loop: "{{ radius_groups_configured }}"
+          loop_control:
+            loop_var: grp
+          vars:
+            unlink_cmds: >-
+              {{
+                (
+                  ['aaa group server radius ' ~ grp]
+                  +
+                  (radius_names_to_remove | map('regex_replace', '^(.*)$', 'no server name \\1') | list)
+                )
+                if (radius_names_to_remove | length > 0)
+                else []
+              }}
+
+        - name: clean-up | Unlink extra servers from groups
+          ios_config:
+            lines: "{{ radius_unlink_lines }}"
+          when: radius_unlink_lines | length > 0
+
+        - name: clean-up | Delete extra radius server objects
+          ios_config:
+            lines: "{{ radius_names_to_remove | map('regex_replace', '^(.*)$', 'no radius server \\1') | list }}"
+          when: radius_names_to_remove | length > 0
+
+      tags:
+        - cleanup
