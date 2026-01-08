@@ -75,13 +75,10 @@
         aaa_method_lists: >-
           {{
             (
-              # authentication (login/enable/dot1x/etc.)
               (run_text | regex_findall('(?m)^\\s*aaa\\s+authentication\\s+\\S+\\s+(\\S+)\\b'))
               +
-              # authorization (exec/network/commands/etc.)
               (run_text | regex_findall('(?m)^\\s*aaa\\s+authorization\\s+\\S+(?:\\s+\\d+)?\\s+(\\S+)\\b'))
               +
-              # accounting (network/system/dot1x/auth-proxy/commands/etc.)
               (run_text | regex_findall('(?m)^\\s*aaa\\s+accounting\\s+\\S+(?:\\s+\\d+)?\\s+(\\S+)\\b'))
             )
             | difference(ignore_method_lists)
