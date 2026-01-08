@@ -601,6 +601,9 @@
             lines: "{{ radius_names_to_remove | map('regex_replace', '^(.*)$', 'no radius server \\1') | list }}"
           when: (radius_names_to_remove | length) > 0
 
+        ##########################################################
+        # 10) Clean Up Stale groups
+        ##########################################################
         - name: clean-up | Re-gather radius groups after changes
           ios_command:
             commands:
@@ -644,6 +647,9 @@
             msg:
               empty_radius_groups: "{{ empty_radius_groups | default([]) }}"
 
+        ##########################################################
+        # 11) Remove Unused/Stale AAA Method lists
+        ##########################################################
         - name: clean-up | Gather AAA server groups after cleanup (radius + tacacs)
           ios_command:
             commands:
@@ -707,6 +713,45 @@
           ios_config:
             lines: "{{ aaa_lines_to_remove | default([]) | map('regex_replace', '^', 'no ') | list }}"
           when: (aaa_lines_to_remove | default([])) | length > 0
+
+
+        ##########################################################
+        # 11) Remove Stale CoA Clients
+        ##########################################################
+
+        - name: clean-up | Gather dynamic-author config
+          ios_command:
+            commands:
+              - "show running-config | section ^aaa server radius dynamic-author"
+          register: coa_cfg
+
+        - name: clean-up | Parse configured COA client IPs
+          set_fact:
+            coa_client_ips_configured: >-
+              {{
+                (coa_cfg.stdout[0] | default(''))
+                | regex_findall('(?m)^\\s*client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)\\b')
+                | unique
+                | list
+              }}
+
+        - name: clean-up | Compute COA client IPs to remove (not in allowed_radius_ips)
+          set_fact:
+            coa_client_ips_to_remove: "{{ (coa_client_ips_configured | default([])) | difference(allowed_radius_ips | default([])) }}"
+
+        - name: clean-up | Show COA cleanup plan
+          debug:
+            msg:
+              allowed_radius_ips: "{{ allowed_radius_ips | default([]) }}"
+              coa_client_ips_configured: "{{ coa_client_ips_configured | default([]) }}"
+              coa_client_ips_to_remove: "{{ coa_client_ips_to_remove | default([]) }}"
+
+        - name: clean-up | Remove stale dynamic-author clients
+          ios_config:
+            parents: "aaa server radius dynamic-author"
+            lines: "{{ coa_client_ips_to_remove | map('regex_replace', '^(.*)$', 'no client \\1') | list }}"
+          when: (coa_client_ips_to_remove | default([])) | length > 0
+
 
       tags:
         - cleanup
