@@ -714,10 +714,30 @@
               - "show running-config | section ^aaa server radius dynamic-author"
           register: coa_cfg
 
-        - name: clean-up | Build COA lines list (method split)
+        - name: clean-up | Normalize COA text to real newlines
           set_fact:
-            coa_lines: "{{ (coa_cfg.stdout[0] | default('') | regex_replace('\r','')).split('\n') }}"
+            coa_text_norm: >-
+              {{
+                (coa_cfg.stdout[0] | default(''))
+                | regex_replace('\r', '')
+                | regex_replace('\\\\n', '\n')
+              }}
 
+        - name: clean-up | Debug COA normalized (head)
+          debug:
+            msg:
+              norm_head: "{{ coa_text_norm[:200] }}"
+              norm_len: "{{ coa_text_norm | length }}"
+
+        - name: clean-up | Build COA lines list (normalized)
+          set_fact:
+            coa_lines: "{{ coa_text_norm.split('\n') }}"
+
+        - name: clean-up | Debug COA line split
+          debug:
+            msg:
+              coa_lines_count: "{{ coa_lines | length }}"
+              coa_lines_first5: "{{ coa_lines[:5] }}"
 
         - name: clean-up | Initialize COA client IP list
           set_fact:
