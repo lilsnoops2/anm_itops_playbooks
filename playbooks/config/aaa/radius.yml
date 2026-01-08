@@ -409,17 +409,23 @@
 
     ##########################################################
     # clean-up
-    # Unlink and remove RADIUS servers not in aaa-servers.yml
+    # Remove extra & stale RADIUS servers and group entries
     ##########################################################
 
     - block:
 
-        - name: clean-up | Initialize unlink lines
+        ##########################################################
+        # Init
+        ##########################################################
+
+        - name: clean-up | Initialize cleanup facts
           set_fact:
             radius_unlink_lines: []
+            group_members: {}
+            _cur_grp: ""
 
         ##########################################################
-        # 1) Build allowed IP list from aaa-servers.yml
+        # 1) Allowed IPs from aaa-servers.yml
         ##########################################################
 
         - name: clean-up | Build allowed radius IP list
@@ -435,7 +441,7 @@
               }}
 
         ##########################################################
-        # 2) Determine extra configured servers (by name + IP)
+        # 2) Extra configured servers (exist but not allowed)
         ##########################################################
 
         - name: clean-up | Compute extra configured radius servers
@@ -456,7 +462,7 @@
               }}
 
         ##########################################################
-        # 3) Gather ALL radius groups
+        # 3) Gather radius groups (raw text)
         ##########################################################
 
         - name: clean-up | Gather radius groups
@@ -465,22 +471,66 @@
               - "show running-config | section aaa group server radius"
           register: cleanup_radius_groups
 
-        - name: clean-up | Parse radius group names (line-based)
+        ##########################################################
+        # 4) Parse group members (line-based, safe)
+        ##########################################################
+
+        - name: clean-up | Parse group members
           set_fact:
-            radius_groups_configured: >-
+            _cur_grp: "{{ line.split()[-1] if line.startswith('aaa group server radius ') else _cur_grp }}"
+            group_members: >-
               {{
-                (cleanup_radius_groups.stdout[0] | default('') ).splitlines()
-                | map('trim')
-                | select('match', '^aaa group server radius ')
-                | map('split')
-                | map('last')
-                | unique
+                group_members
+                | combine(
+                    (
+                      { _cur_grp: ((group_members.get(_cur_grp, []) + [line.split()[-1]]) | unique) }
+                      if (line.startswith('server name ') and _cur_grp != '')
+                      else {}
+                    ),
+                    recursive=True
+                  )
+              }}
+          loop: "{{ (cleanup_radius_groups.stdout[0] | default('')).splitlines() | map('trim') | list }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+
+        - name: clean-up | Build group list
+          set_fact:
+            radius_groups_configured: "{{ group_members.keys() | list }}"
+
+        ##########################################################
+        # 5) Desired server names (from allowed IPs)
+        ##########################################################
+
+        - name: clean-up | Compute desired radius server names
+          set_fact:
+            desired_radius_names: >-
+              {{
+                (existing_radius_map | default({}) | dict2items)
+                | selectattr('value', 'in', allowed_radius_ips)
+                | map(attribute='key')
                 | list
               }}
 
+        ##########################################################
+        # 6) Stale group-only members
+        #    (in group, not desired, and no radius server object)
+        ##########################################################
+
+        - name: clean-up | Compute stale group members
+          set_fact:
+            stale_group_members: >-
+              {{
+                (
+                  group_members.values() | list | flatten | unique
+                )
+                | difference(desired_radius_names | default([]))
+                | difference((existing_radius_map | default({})).keys() | list)
+              }}
 
         ##########################################################
-        # 4) Build unlink commands (unlink FIRST)
+        # 7) Build unlink commands (extra + stale)
         ##########################################################
 
         - name: clean-up | Build unlink commands
@@ -490,19 +540,29 @@
           loop_control:
             loop_var: grp
           vars:
+            members: "{{ group_members.get(grp, []) | default([]) }}"
+            bad_in_group: >-
+              {{
+                members
+                | intersect(
+                    (radius_names_to_remove | default([])) + (stale_group_members | default([]))
+                  )
+                | unique
+                | list
+              }}
             unlink_cmds: >-
               {{
                 (
                   ['aaa group server radius ' ~ grp]
                   +
-                  (radius_names_to_remove | map('regex_replace', '^(.*)$', 'no server name \\1') | list)
+                  (bad_in_group | map('regex_replace', '^(.*)$', 'no server name \\1') | list)
                 )
-                if (radius_names_to_remove | length > 0)
+                if (bad_in_group | length > 0)
                 else []
               }}
 
         ##########################################################
-        # 5) Show plan
+        # 8) Show plan
         ##########################################################
 
         - name: clean-up | Show unlink/delete plan
@@ -510,26 +570,25 @@
             msg:
               allowed_radius_ips: "{{ allowed_radius_ips }}"
               existing_radius_map: "{{ existing_radius_map }}"
-              cleanup_radius_groups_raw: "{{ cleanup_radius_groups.stdout[0] | default('') }}"
-              radius_groups_configured: "{{ radius_groups_configured }}"
+              desired_radius_names: "{{ desired_radius_names }}"
               radius_names_to_remove: "{{ radius_names_to_remove }}"
-              radius_ips_to_remove: "{{ radius_ips_to_remove }}"
-              radius_unlink_lines: "{{ radius_unlink_lines | default([]) }}"
+              stale_group_members: "{{ stale_group_members }}"
+              group_members: "{{ group_members }}"
+              radius_unlink_lines: "{{ radius_unlink_lines }}"
 
         ##########################################################
-        # 6) APPLY: unlink, then delete
+        # 9) APPLY: unlink first, then delete
         ##########################################################
 
-        - name: clean-up | Unlink extra servers from groups
+        - name: clean-up | Unlink extra & stale servers from groups
           ios_config:
             lines: "{{ radius_unlink_lines }}"
-          when: (radius_unlink_lines | default([])) | length > 0
+          when: (radius_unlink_lines | length) > 0
 
         - name: clean-up | Delete extra radius server objects
           ios_config:
             lines: "{{ radius_names_to_remove | map('regex_replace', '^(.*)$', 'no radius server \\1') | list }}"
-          when: (radius_names_to_remove | default([])) | length > 0
+          when: (radius_names_to_remove | length) > 0
 
       tags:
         - cleanup
-
