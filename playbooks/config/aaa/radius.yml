@@ -601,5 +601,48 @@
             lines: "{{ radius_names_to_remove | map('regex_replace', '^(.*)$', 'no radius server \\1') | list }}"
           when: (radius_names_to_remove | length) > 0
 
+        - name: clean-up | Re-gather radius groups after changes
+          ios_command:
+            commands:
+              - "show running-config | section aaa group server radius"
+          register: cleanup_radius_groups_after
+
+        - name: clean-up | Compute empty radius groups (no server name entries)
+          set_fact:
+            empty_radius_groups: []
+            _cur_grp: ""
+            _cur_has_member: false
+
+        - name: clean-up | Scan groups and detect empties
+          set_fact:
+            # when we hit a new group header, finalize the previous group:
+            empty_radius_groups: >-
+              {{
+                empty_radius_groups
+                + ([ _cur_grp ] if (_cur_grp != '' and (not _cur_has_member)) else [])
+                if (line.startswith('aaa group server radius '))
+                else empty_radius_groups
+              }}
+            _cur_grp: "{{ (line.split()[-1]) if line.startswith('aaa group server radius ') else _cur_grp }}"
+            _cur_has_member: "{{ true if line.startswith('server name ') else _cur_has_member }}"
+          loop: "{{ (cleanup_radius_groups_after.stdout[0] | default('')).splitlines() | map('trim') | list }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+
+        - name: clean-up | Finalize last group empty check
+          set_fact:
+            empty_radius_groups: "{{ empty_radius_groups + ([ _cur_grp ] if (_cur_grp != '' and (not _cur_has_member)) else []) }}"
+
+        - name: clean-up | Remove empty radius groups
+          ios_config:
+            lines: "{{ empty_radius_groups | map('regex_replace', '^(.*)$', 'no aaa group server radius \\1') | list }}"
+          when: (empty_radius_groups | default([])) | length > 0
+
+        - name: clean-up | Show empty groups removed
+          debug:
+            msg:
+              empty_radius_groups: "{{ empty_radius_groups | default([]) }}"
+
       tags:
         - cleanup
