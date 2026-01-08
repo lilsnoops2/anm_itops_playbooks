@@ -465,15 +465,19 @@
               - "show running-config | section aaa group server radius"
           register: cleanup_radius_groups
 
-        - name: clean-up | Parse radius group names
+        - name: clean-up | Parse radius group names (line-based)
           set_fact:
             radius_groups_configured: >-
               {{
-                (cleanup_radius_groups.stdout[0] | default(''))
-                | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)')
+                (cleanup_radius_groups.stdout[0] | default('') ).splitlines()
+                | map('trim')
+                | select('match', '^aaa group server radius ')
+                | map('split')
+                | map('last')
                 | unique
                 | list
               }}
+
 
         ##########################################################
         # 4) Build unlink commands (unlink FIRST)
