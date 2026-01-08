@@ -124,12 +124,16 @@
       set_fact:
         radius_servers_to_remove: >-
           {{
-            configured_radius_map
-            | rejectattr('ip', 'in', allowed_radius_ips)
+            (configured_radius_map | default([]))
+            | rejectattr('ip', 'in', allowed_radius_ips | default([]))
             | list
           }}
-        radius_names_to_remove: "{{ radius_servers_to_remove | map(attribute='name') | unique | list }}"
-        radius_ips_to_remove: "{{ radius_servers_to_remove | map(attribute='ip') | unique | list }}"
+
+    - name: Compute derived removal lists (names and IPs)
+      set_fact:
+        radius_names_to_remove: "{{ (radius_servers_to_remove | default([])) | map(attribute='name') | unique | list }}"
+        radius_ips_to_remove: "{{ (radius_servers_to_remove | default([])) | map(attribute='ip') | unique | list }}"
+
 
     - name: Find configured RADIUS group names (from show run aaa)
       set_fact:
