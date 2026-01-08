@@ -52,27 +52,20 @@
 
 
   tasks:
-    - name: Get running config
+    # ------------------------------------------------------------
+    # STEP 1: Unlink + delete RADIUS servers by IP using `show run aaa`
+    # ------------------------------------------------------------
+
+    - name: Get AAA running-config section (source of truth for radius/groups)
       ios_command:
         commands:
-          - show running-config
-      register: run_cfg
+          - show run aaa
+      register: aaa_run
 
-    - name: Normalize running-config
+    - name: Normalize AAA text
       set_fact:
-        run_text: "{{ run_cfg.stdout[0] | replace('\r','') }}"
-        run_lines: "{{ (run_cfg.stdout[0] | replace('\r','')).splitlines() }}"
-
-    - debug:
-        msg:
-          run_len: "{{ run_text | length }}"
-          radius_server_lines: "{{ (run_lines | select('match','^\\s*radius\\s+server\\s+') | list)[:20] }}"
-
-
-   # ------------------------------------------------------------
-# STEP 1: Remove RADIUS servers (by IP) that are configured but not in aaa-servers.yml
-#         Unlink from groups first, then delete server objects
-# ------------------------------------------------------------
+        aaa_text: "{{ aaa_run.stdout[0] | replace('\r','') }}"
+        aaa_lines: "{{ (aaa_run.stdout[0] | replace('\r','')).splitlines() }}"
 
     - name: Build allowed radius IP list from aaa-servers.yml
       set_fact:
@@ -86,11 +79,11 @@
             | list
           }}
 
-    - name: List configured radius server object names
+    - name: List configured radius server object names (from show run aaa)
       set_fact:
         radius_server_names_configured: >-
           {{
-            (run_text | regex_findall('(?m)^\\s*radius\\s+server\\s+(\\S+)\\b'))
+            (aaa_text | regex_findall('(?m)^\\s*radius\\s+server\\s+(\\S+)\\b'))
             | unique
             | list
           }}
@@ -99,19 +92,16 @@
       set_fact:
         configured_radius_map: []
         radius_unlink_lines: []
-        radius_groups_configured: []
-        radius_server_names_configured: []
 
-
-    - name: Build map of configured radius servers (name -> ip)
+    - name: Build map of configured radius servers (name -> ip) from show run aaa
       set_fact:
-        configured_radius_map: "{{ configured_radius_map | default([]) + [ { 'name': item, 'ip': ip_found } ] }}"
-      loop: "{{ radius_server_names_configured }}"
+        configured_radius_map: "{{ configured_radius_map + [ { 'name': item, 'ip': ip_found } ] }}"
+      loop: "{{ radius_server_names_configured | default([]) }}"
       vars:
         esc_name: "{{ item | regex_replace('([\\\\.^$|()\\[\\]{}*+?\\\\-])', '\\\\\\1') }}"
         body: >-
           {{
-            (run_text
+            (aaa_text
               | regex_findall('(?ms)^\\s*radius\\s+server\\s+' ~ esc_name ~ '\\b\\s*\\n(.*?)(?=^\\S|\\Z)')
               | first
               | default('')
@@ -130,7 +120,6 @@
       set_fact:
         configured_radius_map: "{{ (configured_radius_map | default([])) | rejectattr('ip', 'equalto', '') | list }}"
 
-
     - name: Compute radius servers to remove (IP not in aaa-servers.yml)
       set_fact:
         radius_servers_to_remove: >-
@@ -142,26 +131,25 @@
         radius_names_to_remove: "{{ radius_servers_to_remove | map(attribute='name') | unique | list }}"
         radius_ips_to_remove: "{{ radius_servers_to_remove | map(attribute='ip') | unique | list }}"
 
-    # ---- Find RADIUS groups and which ones contain any of the bad servers
-    - name: Find configured RADIUS group names
+    - name: Find configured RADIUS group names (from show run aaa)
       set_fact:
         radius_groups_configured: >-
           {{
-            (run_text | regex_findall('(?m)^\\s*aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b'))
+            (aaa_text | regex_findall('(?m)^\\s*aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b'))
             | unique
             | list
           }}
 
-    - name: Build unlink lines (remove server names from groups)
+    - name: Build unlink lines (remove bad server names from groups)
       set_fact:
-        radius_unlink_lines: "{{ radius_unlink_lines | default([]) + unlink_cmds }}"
-      loop: "{{ radius_groups_configured }}"
+        radius_unlink_lines: "{{ radius_unlink_lines + unlink_cmds }}"
+      loop: "{{ radius_groups_configured | default([]) }}"
       vars:
         group_name: "{{ item }}"
         esc_group: "{{ group_name | regex_replace('([\\\\.^$|()\\[\\]{}*+?\\\\-])', '\\\\\\1') }}"
         group_body: >-
           {{
-            (run_text
+            (aaa_text
               | regex_findall('(?ms)^\\s*aaa\\s+group\\s+server\\s+radius\\s+' ~ esc_group ~ '\\b\\s*\\n(.*?)(?=^\\S|\\Z)')
               | first
               | default('')
@@ -188,21 +176,14 @@
           configured_radius_map: "{{ configured_radius_map }}"
           radius_ips_to_remove: "{{ radius_ips_to_remove }}"
           radius_names_to_remove: "{{ radius_names_to_remove }}"
-          radius_unlink_lines: "{{ radius_unlink_lines | default([]) }}"
+          radius_unlink_lines: "{{ radius_unlink_lines }}"
 
-    - name: Pause before changes
-      pause:
-        prompt: "About to remove radius servers. Press Enter to continue or Ctrl+C to abort."
-
-
-    # SAFETY: only proceed if vars loaded and we have something to remove
-    - name: Unlink bad RADIUS servers from groups (parent mode)
+    - name: Unlink bad RADIUS servers from groups
       ios_config:
-        parents: []
         lines: "{{ radius_unlink_lines }}"
       when:
         - allowed_radius_ips | length > 0
-        - (radius_unlink_lines | default([])) | length > 0
+        - radius_unlink_lines | length > 0
 
     - name: Delete bad radius server objects (by NAME; selected by IP)
       ios_config:
