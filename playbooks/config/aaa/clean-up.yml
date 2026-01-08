@@ -60,10 +60,6 @@
 
   tasks:
 
-    # ------------------------------------------------------------
-    # Collect RADIUS-related configuration
-    # ------------------------------------------------------------
-
     - name: Collect RADIUS server objects and group blocks
       ios_command:
         commands:
@@ -73,12 +69,15 @@
 
     - name: Normalize RADIUS config text
       set_fact:
-        radius_obj_text: "{{ rad_collect.stdout[0] | default('') | string | replace('\r','') }}"
-        radius_group_text: "{{ rad_collect.stdout[1] | default('') | string | replace('\r','') }}"
+        radius_obj_text: "{{ rad_collect.stdout[0] | default('') | string }}"
+        radius_group_text: "{{ rad_collect.stdout[1] | default('') | string }}"
 
-    # ------------------------------------------------------------
-    # Build allowed RADIUS IP list from aaa-servers.yml
-    # ------------------------------------------------------------
+    # Optional but VERY helpful: prove what separators are in the string
+    - name: Debug raw text encoding (first 400 chars)
+      debug:
+        msg:
+          radius_obj_text_json_head: "{{ (radius_obj_text[:400]) | to_json }}"
+          radius_group_text_json_head: "{{ (radius_group_text[:400]) | to_json }}"
 
     - name: Build allowed radius IP list from vars
       set_fact:
@@ -93,16 +92,16 @@
           }}
 
     # ------------------------------------------------------------
-    # Parse RADIUS server objects (name + IP)
+    # Parse RADIUS server objects (name + ip) WITHOUT relying on \n
     # ------------------------------------------------------------
 
-    - name: Extract configured RADIUS server name/IP pairs
+    - name: Extract configured RADIUS server name/IP pairs (separator-agnostic)
       set_fact:
         configured_radius_pairs: >-
           {{
-            radius_obj_text
+            (radius_obj_text | replace('\r','\n'))
             | regex_findall(
-                '(?s)radius\\s+server\\s+(\\S+)\\s*\\n\\s*address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b'
+                '(?s)radius\\s+server\\s+(\\S+).*?address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b.*?(?=radius\\s+server\\s+|\\Z)'
               )
           }}
 
@@ -116,14 +115,14 @@
         configured_radius_map: "{{ configured_radius_map | default([]) | unique | list }}"
 
     # ------------------------------------------------------------
-    # Parse RADIUS groups and group members
+    # Parse RADIUS groups and members WITHOUT relying on \n
     # ------------------------------------------------------------
 
     - name: Extract configured RADIUS group names
       set_fact:
         radius_groups_configured: >-
           {{
-            radius_group_text
+            (radius_group_text | replace('\r','\n'))
             | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b')
             | unique
             | list
@@ -144,9 +143,9 @@
         grp_block: >-
           {{
             (
-              radius_group_text
+              (radius_group_text | replace('\r','\n'))
               | regex_findall(
-                  '(?s)aaa\\s+group\\s+server\\s+radius\\s+' ~ esc_grp ~ '\\b(.*?)(?=aaa\\s+group\\s+server\\s+radius\\s+|\\Z)'
+                  '(?s)aaa\\s+group\\s+server\\s+radius\\s+' ~ esc_grp ~ '\\b.*?(?=aaa\\s+group\\s+server\\s+radius\\s+|\\Z)'
                 )
               | first
               | default('')
@@ -162,28 +161,28 @@
       set_fact:
         radius_servers_to_remove: >-
           {{
-            configured_radius_map
-            | rejectattr('ip', 'in', allowed_radius_ips)
+            (configured_radius_map | default([]))
+            | rejectattr('ip', 'in', allowed_radius_ips | default([]))
             | list
           }}
 
     - name: Compute derived removal lists
       set_fact:
-        radius_names_to_remove: "{{ radius_servers_to_remove | map(attribute='name') | unique | list }}"
-        radius_ips_to_remove: "{{ radius_servers_to_remove | map(attribute='ip') | unique | list }}"
+        radius_names_to_remove: "{{ (radius_servers_to_remove | default([])) | map(attribute='name') | unique | list }}"
+        radius_ips_to_remove: "{{ (radius_servers_to_remove | default([])) | map(attribute='ip') | unique | list }}"
 
     # ------------------------------------------------------------
-    # Build unlink commands (remove bad servers from groups FIRST)
+    # Unlink from groups FIRST
     # ------------------------------------------------------------
 
     - name: Build unlink commands for radius groups
       set_fact:
         radius_unlink_lines: "{{ (radius_unlink_lines | default([])) + unlink_cmds }}"
-      loop: "{{ radius_groups_configured }}"
+      loop: "{{ radius_groups_configured | default([]) }}"
       loop_control:
         loop_var: grp
       vars:
-        bad_servers_in_group: "{{ group_members.get(grp, []) | intersect(radius_names_to_remove) }}"
+        bad_servers_in_group: "{{ (group_members.get(grp, []) | default([])) | intersect(radius_names_to_remove | default([])) }}"
         unlink_cmds: >-
           {{
             (
@@ -196,17 +195,19 @@
           }}
 
     # ------------------------------------------------------------
-    # SHOW PLAN (SAFE DRY RUN OUTPUT)
+    # SHOW PLAN
     # ------------------------------------------------------------
 
     - name: Show RADIUS unlink/delete plan
       debug:
         msg:
           allowed_radius_ips: "{{ allowed_radius_ips }}"
-          configured_radius_map: "{{ configured_radius_map }}"
-          radius_ips_to_remove: "{{ radius_ips_to_remove }}"
-          radius_names_to_remove: "{{ radius_names_to_remove }}"
-          group_members: "{{ group_members }}"
+          configured_radius_pairs: "{{ configured_radius_pairs | default([]) }}"
+          configured_radius_map: "{{ configured_radius_map | default([]) }}"
+          radius_ips_to_remove: "{{ radius_ips_to_remove | default([]) }}"
+          radius_names_to_remove: "{{ radius_names_to_remove | default([]) }}"
+          radius_groups_configured: "{{ radius_groups_configured | default([]) }}"
+          group_members: "{{ group_members | default({}) }}"
           radius_unlink_lines: "{{ radius_unlink_lines | default([]) }}"
 
     # ------------------------------------------------------------
@@ -216,12 +217,9 @@
     - name: Unlink bad RADIUS servers from groups
       ios_config:
         lines: "{{ radius_unlink_lines }}"
-      when:
-        - radius_unlink_lines is defined
-        - radius_unlink_lines | length > 0
+      when: (radius_unlink_lines | default([])) | length > 0
 
     - name: Delete bad RADIUS server objects
       ios_config:
         lines: "{{ radius_names_to_remove | map('regex_replace', '^(.*)$', 'no radius server \\1') | list }}"
-      when:
-        - radius_names_to_remove | length > 0
+      when: (radius_names_to_remove | default([])) | length > 0
