@@ -68,95 +68,217 @@
 
 
   tasks:
-
     - name: Get running config
       ios_command:
         commands:
           - show running-config
       register: run_cfg
 
-    - name: Parse running config with Genie
-      pyats_parse:
-        command: show running-config
-        output: "{{ run_cfg.stdout[0] }}"
-      register: parsed
-
-    - name: Extract AAA method list definitions
+    - name: Store running-config text
       set_fact:
-        aaa_method_lists: >-
+        run_text: "{{ run_cfg.stdout[0] }}"
+        run_lines: "{{ run_cfg.stdout[0].splitlines() }}"
+        full_text: "{{ run_cfg.stdout[0] }}"
+
+    # -------------------------------------------------------------------
+    # 1) Collect AAA method-list NAMES from running-config (regex only)
+    # -------------------------------------------------------------------
+
+    - name: Extract AAA authentication login method-list names
+      set_fact:
+        aaa_login_lists: >-
           {{
-            parsed.parsed.aaa.authentication.login
-            | default({})
-            | dict2items
-            | map(attribute='key')
+            (run_text | regex_findall('(?m)^aaa\\s+authentication\\s+login\\s+(\\S+)'))
             | difference(ignore_method_lists)
+            | unique
           }}
 
-    - name: Extract AAA authorization method lists
+    - name: Extract AAA authorization exec method-list names
       set_fact:
-        aaa_method_lists: >-
+        aaa_execz_lists: >-
           {{
-            aaa_method_lists
-            + (
-              parsed.parsed.aaa.authorization.exec
-              | default({})
-              | dict2items
-              | map(attribute='key')
-              | difference(ignore_method_lists)
-            )
+            (run_text | regex_findall('(?m)^aaa\\s+authorization\\s+exec\\s+(\\S+)'))
+            | difference(ignore_method_lists)
+            | unique
           }}
 
-    - name: Extract AAA accounting method lists
+    - name: Extract AAA accounting exec method-list names
       set_fact:
-        aaa_method_lists: >-
+        aaa_acct_exec_lists: >-
           {{
-            aaa_method_lists
-            + (
-              parsed.parsed.aaa.accounting
-              | default({})
-              | dict2items
-              | map(attribute='key')
-              | difference(ignore_method_lists)
-            )
+            (run_text | regex_findall('(?m)^aaa\\s+accounting\\s+exec\\s+(\\S+)'))
+            | difference(ignore_method_lists)
+            | unique
           }}
 
-    - name: Normalize method list set
+    - name: Build full AAA method list set
       set_fact:
-        aaa_method_lists: "{{ aaa_method_lists | unique }}"
+        aaa_method_lists: "{{ (aaa_login_lists + aaa_execz_lists + aaa_acct_exec_lists) | unique }}"
 
-    - name: Extract non-AAA config lines
+    # -------------------------------------------------------------------
+    # 2) Determine which method lists are referenced OUTSIDE AAA
+    #    (keeps you from removing a list used by line/vty/profile, etc.)
+    # -------------------------------------------------------------------
+
+    - name: Build non-AAA text
       set_fact:
-        non_aaa_lines: >-
+        non_aaa_text: >-
           {{
-            run_cfg.stdout[0].splitlines()
-            | reject('match', '^aaa ')
-            | list
+            run_lines
+            | reject('match', '^aaa\\s')
+            | join('\n')
           }}
 
     - name: Detect method lists used outside AAA
       set_fact:
-        used_outside_aaa: >-
-          {{
-            aaa_method_lists
-            | select(
-                'in',
-                non_aaa_lines | join(' ')
-              )
-            | list
-          }}
+        used_outside_aaa: "{{ (used_outside_aaa | default([])) + ([item] if (non_aaa_text is regex_search(rx)) else []) }}"
+      loop: "{{ aaa_method_lists }}"
+      vars:
+        # word-ish boundary to avoid partial matches
+        rx: "(?m)(?:^|[^A-Za-z0-9_\\-]){{ item | regex_escape }}(?:$|[^A-Za-z0-9_\\-])"
 
     - name: Determine safe-to-remove method lists
       set_fact:
-        safe_to_remove: "{{ aaa_method_lists | difference(used_outside_aaa) }}"
+        safe_to_remove_lists: "{{ aaa_method_lists | difference(used_outside_aaa | default([])) | unique }}"
+
+    # -------------------------------------------------------------------
+    # 3) RADIUS server-groups: find configured groups, then which are referenced anywhere
+    # -------------------------------------------------------------------
+
+    - name: Find configured RADIUS server-groups
+      set_fact:
+        radius_groups_configured: >-
+          {{
+            (run_text | regex_findall('(?m)^aaa\\s+group\\s+server\\s+radius\\s+(\\S+)'))
+            | unique
+          }}
+
+    - name: Find referenced RADIUS groups (anywhere in config)
+      set_fact:
+        radius_groups_referenced: "{{ (radius_groups_referenced | default([])) + ([item] if (full_text is regex_search(rx)) else []) }}"
+      loop: "{{ radius_groups_configured }}"
+      vars:
+        # match "group <GROUP>" anywhere (AAA or non-AAA)
+        rx: "(?m)(?:^|\\s)group\\s+(?:radius\\s+)?{{ item | regex_escape }}(?:\\s|$)"
+
+    - name: Compute unused RADIUS groups
+      set_fact:
+        radius_groups_unused: "{{ radius_groups_configured | difference(radius_groups_referenced | default([])) | unique }}"
+
+    # -------------------------------------------------------------------
+    # 4) Extract servers inside unused group blocks (supports multiple syntaxes)
+    # -------------------------------------------------------------------
+
+    - name: Extract servers referenced inside unused RADIUS group blocks
+      set_fact:
+        servers_in_unused_groups: "{{ (servers_in_unused_groups | default([])) + servers_found }}"
+      loop: "{{ radius_groups_unused }}"
+      vars:
+        # Grab the group's block body until next non-indented line or end of file
+        group_body: >-
+          {{
+            (run_text
+              | regex_findall('(?ms)^aaa\\s+group\\s+server\\s+radius\\s+' ~ (item | regex_escape) ~ '\\s*\\n(.*?)(?=^\\S|\\Z)')
+              | first
+              | default('')
+            )
+          }}
+        # Pull either:
+        #  - "server name NAME"
+        #  - "server-private 1.2.3.4 ..."
+        #  - "server 1.2.3.4"
+        #  - "ip radius source-interface ..." won't match; that's fine
+        names: "{{ group_body | regex_findall('(?m)^\\s*server\\s+name\\s+(\\S+)') }}"
+        ips1: "{{ group_body | regex_findall('(?m)^\\s*server-private\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b') }}"
+        ips2: "{{ group_body | regex_findall('(?m)^\\s*server\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b') }}"
+        servers_found: "{{ (names + ips1 + ips2) | unique | list }}"
+
+    - name: Normalize servers found in unused groups
+      set_fact:
+        servers_in_unused_groups: "{{ (servers_in_unused_groups | default([])) | unique | list }}"
+
+    # -------------------------------------------------------------------
+    # 5) Normalize "managed" servers from aaa-servers.yml so we only remove what you own
+    #    Supports either:
+    #      radius_servers: [ {name: RAD1, ip: 10.1.1.1}, ... ]
+    #    or:
+    #      radius_servers: [10.1.1.1, 10.1.1.2]
+    # -------------------------------------------------------------------
+
+    - name: Normalize managed radius server identifiers from vars
+      set_fact:
+        managed_radius_ids: >-
+          {{
+            (
+              (radius_servers | default([]))
+              if ((radius_servers | default([])) | length > 0 and (radius_servers[0] is string))
+              else
+              (
+                ((radius_servers | default([])) | map(attribute='name') | select('defined') | list)
+                +
+                ((radius_servers | default([])) | map(attribute='ip') | select('defined') | list)
+              )
+            )
+            | map('string')
+            | unique
+            | list
+          }}
+
+    - name: Find which managed servers appear configured on the device (any syntax)
+      set_fact:
+        managed_servers_configured: "{{ (managed_servers_configured | default([])) + ([item] if (run_text is regex_search(rx)) else []) }}"
+      loop: "{{ managed_radius_ids }}"
+      vars:
+        # match common patterns for named objects or host definitions
+        rx: "(?m)^(?:radius\\s+server\\s+{{ item | regex_escape }}\\b|radius-server\\s+host\\s+{{ item | regex_escape }}\\b|\\s+server-private\\s+{{ item | regex_escape }}\\b|\\s+address\\s+ipv4\\s+{{ item | regex_escape }}\\b)"
+
+    - name: Compute unused managed radius servers (present + only in unused groups)
+      set_fact:
+        unused_managed_radius: "{{ (managed_servers_configured | default([])) | intersect(servers_in_unused_groups | default([])) | unique }}"
+
+    # -------------------------------------------------------------------
+    # 6) Show what we plan to remove
+    # -------------------------------------------------------------------
 
     - name: Show results
       debug:
         msg:
-          defined: "{{ aaa_method_lists }}"
-          used_outside_aaa: "{{ used_outside_aaa }}"
-          safe_to_remove: "{{ safe_to_remove }}"
+          aaa_method_lists: "{{ aaa_method_lists }}"
+          used_outside_aaa: "{{ used_outside_aaa | default([]) }}"
+          safe_to_remove_lists: "{{ safe_to_remove_lists }}"
+          radius_groups_configured: "{{ radius_groups_configured }}"
+          radius_groups_unused: "{{ radius_groups_unused }}"
+          servers_in_unused_groups: "{{ servers_in_unused_groups | default([]) }}"
+          managed_radius_ids: "{{ managed_radius_ids }}"
+          unused_managed_radius: "{{ unused_managed_radius }}"
 
-    - name: Remove unused AAA method lists
+    # -------------------------------------------------------------------
+    # 7) Removals
+    # -------------------------------------------------------------------
+
+    - name: Remove unused AAA authentication login method lists
       ios_config:
-        lines: "{{ safe_to_remove | map('regex_replace', '^(.*)$', 'no aaa authentication login \\1') | list }}"
-      when: safe_to_remove | length > 0
+        lines: "{{ safe_to_remove_lists | map('regex_replace', '^(.*)$', 'no aaa authentication login \\1') | list }}"
+      when: safe_to_remove_lists | length > 0
+
+    - name: Remove unused AAA authorization exec method lists
+      ios_config:
+        lines: "{{ safe_to_remove_lists | map('regex_replace', '^(.*)$', 'no aaa authorization exec \\1') | list }}"
+      when: safe_to_remove_lists | length > 0
+
+    - name: Remove unused AAA accounting exec method lists
+      ios_config:
+        lines: "{{ safe_to_remove_lists | map('regex_replace', '^(.*)$', 'no aaa accounting exec \\1') | list }}"
+      when: safe_to_remove_lists | length > 0
+
+    - name: Remove unused RADIUS server-groups
+      ios_config:
+        lines: "{{ radius_groups_unused | map('regex_replace', '^(.*)$', 'no aaa group server radius \\1') | list }}"
+      when: radius_groups_unused | length > 0
+
+    # OPTIONAL: remove unused radius server objects *by name*
+    # Only applies if you use "radius server NAME" style objects.
+    - name: Remove unused managed radius server objects (named)
+      ios_config:
+        lines: "{{ unused_managed_radius | map('regex_replace', '^(.*)$', 'no radius server \\1') | list }}"
+      when: unused_managed_radius | length > 0
