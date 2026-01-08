@@ -644,66 +644,56 @@
             msg:
               empty_radius_groups: "{{ empty_radius_groups | default([]) }}"
 
-        - name: clean-up | Gather AAA section after cleanup
+        - name: clean-up | Gather AAA server groups after cleanup (radius + tacacs)
           ios_command:
             commands:
-              - "show running-config | section aaa"
-          register: aaa_after
+              - "show running-config | section aaa group server"
+          register: aaa_groups_after
 
-
-        - name: clean-up | Build list of existing RADIUS groups after cleanup
+        - name: clean-up | Build list of existing AAA groups after cleanup (all types)
           set_fact:
-            radius_groups_existing_after: >-
+            aaa_groups_existing_after: >-
               {{
-                (cleanup_radius_groups_after.stdout[0] | default('')).splitlines()
+                (aaa_groups_after.stdout[0] | default('')).splitlines()
                 | map('trim')
-                | select('match', '^aaa group server radius ')
+                | select('match', '^aaa group server ')
                 | map('split')
                 | map('last')
                 | unique
                 | list
               }}
 
-        - name: clean-up | Extract AAA lines that reference RADIUS groups
+        - name: clean-up | Collect AAA lines that reference any group
           set_fact:
-            aaa_lines_with_radius_group: >-
+            aaa_group_lines: >-
               {{
                 (aaa_after.stdout[0] | default('')).splitlines()
                 | map('trim')
                 | select('match', '^aaa ')
                 | select('search', '\\bgroup\\s+\\S+')
-                | select('search', '\\bgroup\\s+\\S+-RADIUS\\b|\\bgroup\\s+ISE-RADIUS\\b|\\bgroup\\s+phs-RADIUS\\b|\\bgroup\\s+\\S+RADIUS\\b')
                 | list
               }}
 
-        - name: clean-up | Build AAA removal list for missing RADIUS groups
+        - name: clean-up | Compute AAA lines to remove (group missing)
           set_fact:
-            aaa_lines_to_remove: "{{ (aaa_lines_to_remove | default([])) + ([line] if missing else []) }}"
-          loop: "{{ aaa_lines_with_radius_group | default([]) }}"
+            aaa_lines_to_remove: "{{ (aaa_lines_to_remove | default([])) + ([line] if remove_me else []) }}"
+          loop: "{{ aaa_group_lines | default([]) }}"
           loop_control:
             loop_var: line
             label: "hidden"
           vars:
             grp: "{{ (line | regex_findall('\\bgroup\\s+(\\S+)') | first | default('')) }}"
-            # only consider RADIUS groups (skip tacacs groups)
-            is_radius_group_ref: "{{ grp != '' and ('RADIUS' in grp) }}"
-            missing: "{{ is_radius_group_ref and (grp not in (radius_groups_existing_after | default([]))) }}"
+            remove_me: "{{ (grp | length > 0) and (grp not in (aaa_groups_existing_after | default([]))) }}"
 
-        - name: clean-up | Show AAA lines to remove (missing RADIUS group)
+        - name: clean-up | Show AAA lines to remove (missing group)
           debug:
             msg:
-              radius_groups_existing_after: "{{ radius_groups_existing_after | default([]) }}"
+              aaa_groups_existing_after: "{{ aaa_groups_existing_after | default([]) }}"
               aaa_lines_to_remove: "{{ aaa_lines_to_remove | default([]) }}"
-          tags: [cleanup]
 
-        - name: clean-up | Remove AAA lines that reference missing RADIUS groups
+        - name: clean-up | Remove AAA lines that reference missing groups
           ios_config:
-            lines: "{{ aaa_lines_to_remove }}"
-          when: (aaa_lines_to_remove | default([])) | length > 0
-
-        - name: clean-up | Remove AAA lines that reference missing RADIUS groups
-          ios_config:
-            lines: "{{ aaa_lines_to_remove | map('regex_replace', '^', 'no ') | list }}"
+            lines: "{{ aaa_lines_to_remove | default([]) | map('regex_replace', '^', 'no ') | list }}"
           when: (aaa_lines_to_remove | default([])) | length > 0
 
       tags:
