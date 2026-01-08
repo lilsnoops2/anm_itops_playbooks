@@ -732,23 +732,15 @@
               coa_len: "{{ (coa_cfg.stdout[0] | default('')) | length }}"
               coa_head: "{{ (coa_cfg.stdout[0] | default(''))[:250] }}"
 
-        - name: clean-up | Parse configured COA client IPs (robust)
+        - name: clean-up | Parse configured COA client IPs (simple regex)
           set_fact:
             coa_client_ips_configured: >-
               {{
-                (
-                  (coa_cfg.stdout[0] | default(''))
-                  | regex_replace('\r', '')
-                  | splitlines()
-                  | map('trim')
-                  | select('match', '^client\\s+\\d+\\.\\d+\\.\\d+\\.\\d+\\b')
-                  | map('regex_findall', '^client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)\\b')
-                  | map('first')
-                  | list
-                )
+                (coa_cfg.stdout[0] | default(''))
+                | regex_findall('client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)')
                 | unique
+                | list
               }}
-
 
         - name: clean-up | Compute COA client IPs to remove (not in allowed_radius_ips)
           set_fact:
