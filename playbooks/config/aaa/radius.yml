@@ -714,32 +714,35 @@
               - "show running-config | section ^aaa server radius dynamic-author"
           register: coa_cfg
 
+        - name: clean-up | Build COA lines list (method split)
+          set_fact:
+            coa_lines: "{{ (coa_cfg.stdout[0] | default('') | regex_replace('\r','')).split('\n') }}"
+
+
         - name: clean-up | Initialize COA client IP list
           set_fact:
             coa_client_ips_configured: []
 
-        - name: clean-up | Extract COA client IPs (string-safe)
+        - name: clean-up | Extract COA client IPs (line-based)
           set_fact:
             coa_client_ips_configured: "{{ coa_client_ips_configured + [ extracted_ip ] }}"
           vars:
-            extracted_ip: "{{ line | regex_replace('^.*\\bclient\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+).*$','\\1') }}"
-          loop: "{{ (coa_cfg.stdout[0] | default('') | regex_replace('\r','') | split('\n')) }}"
+            extracted_ip: "{{ line | regex_replace('^\\s*client\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)\\b.*$', '\\1') }}"
+          loop: "{{ coa_lines }}"
           loop_control:
             loop_var: line
             label: "hidden"
-          when: line is search('\\bclient\\s+\\d+\\.\\d+\\.\\d+\\.\\d+\\b')
+          when: line is search('^\\s*client\\s+\\d+\\.\\d+\\.\\d+\\.\\d+\\b')
 
         - name: clean-up | Normalize COA client IP list
           set_fact:
-            coa_client_ips_configured: "{{ coa_client_ips_configured | flatten | unique | list }}"
+            coa_client_ips_configured: "{{ coa_client_ips_configured | unique | list }}"
 
-        - name: clean-up | Debug COA parsed IPs
+        - name: clean-up | Debug COA line split
           debug:
             msg:
-              coa_client_ips_configured: "{{ coa_client_ips_configured }}"
-              count: "{{ coa_client_ips_configured | length }}"
-              cfg_coa: "{{ coa_cfg.stdout[0] }}"
-
+              coa_lines_count: "{{ coa_lines | length }}"
+              coa_lines_first5: "{{ coa_lines[:5] }}"
 
         - name: clean-up | Compute COA client IPs to remove (not in allowed_radius_ips)
           set_fact:
