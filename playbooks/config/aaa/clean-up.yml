@@ -61,7 +61,7 @@
   tasks:
 
     # ------------------------------------------------------------
-    # Collect RADIUS-related config safely
+    # Collect RADIUS-related configuration
     # ------------------------------------------------------------
 
     - name: Collect RADIUS server objects and group blocks
@@ -73,14 +73,14 @@
 
     - name: Normalize RADIUS config text
       set_fact:
-        radius_obj_text: "{{ rad_collect.stdout[0] | default('') | replace('\r', '\n') }}"
-        radius_group_text: "{{ rad_collect.stdout[1] | default('') | replace('\r', '\n') }}"
+        radius_obj_text: "{{ rad_collect.stdout[0] | default('') | string | replace('\r','') }}"
+        radius_group_text: "{{ rad_collect.stdout[1] | default('') | string | replace('\r','') }}"
 
     # ------------------------------------------------------------
     # Build allowed RADIUS IP list from aaa-servers.yml
     # ------------------------------------------------------------
 
-    - name: Build allowed radius IP list from vars file
+    - name: Build allowed radius IP list from vars
       set_fact:
         allowed_radius_ips: >-
           {{
@@ -93,124 +93,66 @@
           }}
 
     # ------------------------------------------------------------
-    # Convert raw output into clean line lists
+    # Parse RADIUS server objects (name + IP)
     # ------------------------------------------------------------
 
-    - name: Convert radius config output to clean lines (regex-based)
+    - name: Extract configured RADIUS server name/IP pairs
       set_fact:
-        radius_obj_lines: >-
+        configured_radius_pairs: >-
           {{
-            (radius_obj_text | string)
-            | replace('\r', '')
-            | regex_findall('(?m)^\\s*\\S.*$')
-            | list
-          }}
-        radius_group_lines: >-
-          {{
-            (radius_group_text | string)
-            | replace('\r', '')
-            | regex_findall('(?m)^\\s*\\S.*$')
-            | list
-          }}
-
-
-    - name: Debug line counts after regex split
-      debug:
-        msg:
-          radius_obj_line_count: "{{ radius_obj_lines | length }}"
-          radius_obj_first10: "{{ radius_obj_lines[:10] }}"
-          radius_group_line_count: "{{ radius_group_lines | length }}"
-          radius_group_first10: "{{ radius_group_lines[:10] }}"
-
-    # ------------------------------------------------------------
-    # Parse RADIUS server objects (name + IP) — line-based
-    # ------------------------------------------------------------
-
-    - name: Initialize radius parsing state
-      set_fact:
-        configured_radius_map: []
-        _cur_radius_name: ""
-        _cur_radius_ip: ""
-
-    - name: Parse radius server objects from lines
-      set_fact:
-        configured_radius_map: >-
-          {{
-            configured_radius_map
-            + (
-                [ {'name': _cur_radius_name, 'ip': _cur_radius_ip} ]
-                if (new_server and _cur_radius_name != "" and _cur_radius_ip != "")
-                else []
+            radius_obj_text
+            | regex_findall(
+                '(?s)radius\\s+server\\s+(\\S+)\\s*\\n\\s*address\\s+ipv4\\s+(\\d{1,3}(?:\\.\\d{1,3}){3})\\b'
               )
           }}
-        _cur_radius_name: "{{ l.split()[2] if new_server else _cur_radius_name }}"
-        _cur_radius_ip: "{{ l.split()[2] if is_address else _cur_radius_ip }}"
 
-      loop: "{{ radius_obj_lines }}"
-      loop_control:
-        loop_var: line
-      vars:
-        l: "{{ line | trim }}"
-        new_server: "{{ l.startswith('radius server ') }}"
-        is_address: "{{ l.startswith('address ipv4 ') }}"
-
-
-    - name: Flush last parsed radius server
+    - name: Build configured radius map
       set_fact:
-        configured_radius_map: >-
-          {{
-            configured_radius_map
-            + (
-                [ {'name': _cur_radius_name, 'ip': _cur_radius_ip} ]
-                if (_cur_radius_name != "" and _cur_radius_ip != "")
-                else []
-              )
-          }}
+        configured_radius_map: "{{ (configured_radius_map | default([])) + [ {'name': item.0, 'ip': item.1} ] }}"
+      loop: "{{ configured_radius_pairs | default([]) }}"
 
     - name: Normalize configured radius map
       set_fact:
-        configured_radius_map: "{{ configured_radius_map | unique | list }}"
+        configured_radius_map: "{{ configured_radius_map | default([]) | unique | list }}"
 
     # ------------------------------------------------------------
-    # Parse RADIUS groups and members — line-based
+    # Parse RADIUS groups and group members
     # ------------------------------------------------------------
 
-    - name: Initialize group parsing state
-      set_fact:
-        radius_groups_configured: []
-        group_members: {}
-        _cur_group: ""
-
-    - name: Parse radius groups and members
+    - name: Extract configured RADIUS group names
       set_fact:
         radius_groups_configured: >-
           {{
-            radius_groups_configured
-            + ([ line.split()[-1] ] if line.startswith('aaa group server radius ') else [])
+            radius_group_text
+            | regex_findall('aaa\\s+group\\s+server\\s+radius\\s+(\\S+)\\b')
+            | unique
+            | list
           }}
-        _cur_group: "{{ (l.split()[-1] if l.startswith('aaa group server radius ') else _cur_group) }}"
-        group_members: >-
-          {{
-            group_members
-            | combine(
-                (
-                  {
-                    _cur_group:
-                      (group_members.get(_cur_group, []) + [ l.split()[-1] ]) | unique
-                  }
-                  if (l.startswith('server name ') and _cur_group != "")
-                  else {}
-                ),
-                recursive=True
-              )
-          }}
-      loop: "{{ radius_group_lines }}"
-      loop_control:
-        loop_var: line
 
-    - name: Normalize radius group list
+    - name: Initialize group_members
       set_fact:
-        radius_groups_configured: "{{ radius_groups_configured | unique | list }}"
+        group_members: {}
+
+    - name: Build group_members map (group -> server names)
+      set_fact:
+        group_members: "{{ group_members | combine({ grp: servers }, recursive=True) }}"
+      loop: "{{ radius_groups_configured }}"
+      loop_control:
+        loop_var: grp
+      vars:
+        esc_grp: "{{ grp | regex_replace('([\\\\.^$|()\\[\\]{}*+?\\\\-])', '\\\\\\1') }}"
+        grp_block: >-
+          {{
+            (
+              radius_group_text
+              | regex_findall(
+                  '(?s)aaa\\s+group\\s+server\\s+radius\\s+' ~ esc_grp ~ '\\b(.*?)(?=aaa\\s+group\\s+server\\s+radius\\s+|\\Z)'
+                )
+              | first
+              | default('')
+            )
+          }}
+        servers: "{{ grp_block | regex_findall('server\\s+name\\s+(\\S+)\\b') | unique | list }}"
 
     # ------------------------------------------------------------
     # Determine which RADIUS servers must be removed (by IP)
@@ -236,7 +178,7 @@
 
     - name: Build unlink commands for radius groups
       set_fact:
-        radius_unlink_lines: "{{ radius_unlink_lines | default([]) + unlink_cmds }}"
+        radius_unlink_lines: "{{ (radius_unlink_lines | default([])) + unlink_cmds }}"
       loop: "{{ radius_groups_configured }}"
       loop_control:
         loop_var: grp
@@ -254,7 +196,7 @@
           }}
 
     # ------------------------------------------------------------
-    # SHOW PLAN (NO CHANGES YET)
+    # SHOW PLAN (SAFE DRY RUN OUTPUT)
     # ------------------------------------------------------------
 
     - name: Show RADIUS unlink/delete plan
