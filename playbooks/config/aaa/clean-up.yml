@@ -98,8 +98,8 @@
               [rad_collect.stdout[0], rad_collect.stdout[1], rad_collect.stdout[2]]
               | map('default', '')
               | map('replace', '\r', '')
-              | select('string')
-              | select('length')
+              | map('string')
+              | reject('equalto', '')
               | list
               | first
               | default('')
@@ -111,13 +111,14 @@
               [rad_collect.stdout[3], rad_collect.stdout[4], rad_collect.stdout[5]]
               | map('default', '')
               | map('replace', '\r', '')
-              | select('string')
-              | select('length')
+              | map('string')
+              | reject('equalto', '')
               | list
               | first
               | default('')
             )
           }}
+
 
     - name: Debug command return lengths (so you can see which one worked)
       debug:
