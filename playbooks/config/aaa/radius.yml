@@ -663,14 +663,20 @@
                 | list
               }}
 
-        - name: clean-up | Collect AAA lines that reference any group
+        - name: clean-up | Gather AAA section after cleanup
+          ios_command:
+            commands:
+              - "show running-config | section aaa"
+          register: aaa_after
+
+        - name: clean-up | Collect AAA lines that contain ' group '
           set_fact:
             aaa_group_lines: >-
               {{
                 (aaa_after.stdout[0] | default('')).splitlines()
                 | map('trim')
                 | select('match', '^aaa ')
-                | select('search', '\\bgroup\\s+\\S+')
+                | select('search', ' group ')
                 | list
               }}
 
