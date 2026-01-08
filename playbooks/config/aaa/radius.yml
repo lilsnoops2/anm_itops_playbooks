@@ -738,6 +738,7 @@
             msg:
               coa_client_ips_configured: "{{ coa_client_ips_configured }}"
               count: "{{ coa_client_ips_configured | length }}"
+              cfg_coa: "{{ coa_cfg[0] }}"
 
 
         - name: clean-up | Compute COA client IPs to remove (not in allowed_radius_ips)
