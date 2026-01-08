@@ -11,6 +11,8 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
+    tacacs_key: ""
+    radius_key: ""
     ignore_method_lists:
       - default
       - console
