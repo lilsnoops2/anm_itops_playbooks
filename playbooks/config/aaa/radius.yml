@@ -644,5 +644,67 @@
             msg:
               empty_radius_groups: "{{ empty_radius_groups | default([]) }}"
 
+        - name: clean-up | Gather AAA section after cleanup
+          ios_command:
+            commands:
+              - "show running-config | section aaa"
+          register: aaa_after
+
+
+        - name: clean-up | Build list of existing RADIUS groups after cleanup
+          set_fact:
+            radius_groups_existing_after: >-
+              {{
+                (cleanup_radius_groups_after.stdout[0] | default('')).splitlines()
+                | map('trim')
+                | select('match', '^aaa group server radius ')
+                | map('split')
+                | map('last')
+                | unique
+                | list
+              }}
+
+        - name: clean-up | Extract AAA lines that reference RADIUS groups
+          set_fact:
+            aaa_lines_with_radius_group: >-
+              {{
+                (aaa_after.stdout[0] | default('')).splitlines()
+                | map('trim')
+                | select('match', '^aaa ')
+                | select('search', '\\bgroup\\s+\\S+')
+                | select('search', '\\bgroup\\s+\\S+-RADIUS\\b|\\bgroup\\s+ISE-RADIUS\\b|\\bgroup\\s+phs-RADIUS\\b|\\bgroup\\s+\\S+RADIUS\\b')
+                | list
+              }}
+
+        - name: clean-up | Build AAA removal list for missing RADIUS groups
+          set_fact:
+            aaa_lines_to_remove: "{{ (aaa_lines_to_remove | default([])) + ([line] if missing else []) }}"
+          loop: "{{ aaa_lines_with_radius_group | default([]) }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+          vars:
+            grp: "{{ (line | regex_findall('\\bgroup\\s+(\\S+)') | first | default('')) }}"
+            # only consider RADIUS groups (skip tacacs groups)
+            is_radius_group_ref: "{{ grp != '' and ('RADIUS' in grp) }}"
+            missing: "{{ is_radius_group_ref and (grp not in (radius_groups_existing_after | default([]))) }}"
+
+        - name: clean-up | Show AAA lines to remove (missing RADIUS group)
+          debug:
+            msg:
+              radius_groups_existing_after: "{{ radius_groups_existing_after | default([]) }}"
+              aaa_lines_to_remove: "{{ aaa_lines_to_remove | default([]) }}"
+          tags: [cleanup]
+
+        - name: clean-up | Remove AAA lines that reference missing RADIUS groups
+          ios_config:
+            lines: "{{ aaa_lines_to_remove }}"
+          when: (aaa_lines_to_remove | default([])) | length > 0
+
+        - name: clean-up | Remove AAA lines that reference missing RADIUS groups
+          ios_config:
+            lines: "{{ aaa_lines_to_remove | map('regex_replace', '^', 'no ') | list }}"
+          when: (aaa_lines_to_remove | default([])) | length > 0
+
       tags:
         - cleanup
