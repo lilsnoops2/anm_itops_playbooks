@@ -107,6 +107,7 @@
 
 
     - name: Gather current named TACACS servers
+      tags: cleanup
       ios_command:
         commands:
           - "show running-config | section ^tacacs server"
