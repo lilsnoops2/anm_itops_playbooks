@@ -338,7 +338,7 @@
 
         - name: clean-up | Parse group members
           set_fact:
-            _cur_grp: "{{ line.split()[-1] if line.startswith('aaa group server tacacs ') else _cur_grp }}"
+            _cur_grp: "{{ line.split()[-1] if line.startswith('aaa group server tacacs') else _cur_grp }}"
             group_members: >-
               {{
                 group_members
