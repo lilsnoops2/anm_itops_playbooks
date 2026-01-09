@@ -476,10 +476,10 @@
               {{
                 empty_tacacs_groups
                 + ([ _cur_grp ] if (_cur_grp != '' and (not _cur_has_member)) else [])
-                if (line.startswith('aaa group server tacacs '))
+                if (line.startswith('aaa group server tacacs'))
                 else empty_tacacs_groups
               }}
-            _cur_grp: "{{ (line.split()[-1]) if line.startswith('aaa group server tacacs ') else _cur_grp }}"
+            _cur_grp: "{{ (line.split()[-1]) if line.startswith('aaa group server tacacs') else _cur_grp }}"
             _cur_has_member: "{{ true if line.startswith('server name ') else _cur_has_member }}"
           loop: "{{ (cleanup_tacacs_groups_after.stdout[0] | default('')).splitlines() | map('trim') | list }}"
           loop_control:
@@ -492,7 +492,7 @@
 
         - name: clean-up | Remove empty tacacs groups
           ios_config:
-            lines: "{{ empty_tacacs_groups | map('regex_replace', '^(.*)$', 'no aaa group server tacacs \\1') | list }}"
+            lines: "{{ empty_tacacs_groups | map('regex_replace', '^(.*)$', 'no aaa group server tacacs+ \\1') | list }}"
           when: (empty_tacacs_groups | default([])) | length > 0
 
         - name: clean-up | Show empty groups removed
