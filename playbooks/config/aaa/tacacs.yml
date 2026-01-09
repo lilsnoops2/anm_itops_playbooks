@@ -269,8 +269,8 @@
 
 
     ##########################################################
-    # clean-up (TACACS)
-    # Remove extra & stale TACACS servers and group entries
+    # clean-up
+    # Remove extra & stale tacacs servers and group entries
     ##########################################################
 
     - block:
@@ -279,17 +279,17 @@
         # Init
         ##########################################################
 
-        - name: clean-up | Initialize TACACS cleanup facts
+        - name: clean-up | Initialize cleanup facts
           set_fact:
-            tacacs_unlink_ops: []
-            tacacs_group_members: {}
-            _cur_tac_grp: ""
+            tacacs_unlink_lines: []
+            group_members: {}
+            _cur_grp: ""
 
         ##########################################################
         # 1) Allowed IPs from aaa-servers.yml
         ##########################################################
 
-        - name: clean-up | Build allowed TACACS IP list
+        - name: clean-up | Build allowed tacacs IP list
           set_fact:
             allowed_tacacs_ips: >-
               {{
@@ -305,7 +305,7 @@
         # 2) Extra configured servers (exist but not allowed)
         ##########################################################
 
-        - name: clean-up | Compute extra configured TACACS servers
+        - name: clean-up | Compute extra configured tacacs servers
           set_fact:
             tacacs_names_to_remove: >-
               {{
@@ -326,26 +326,26 @@
         # 3) Gather tacacs groups (raw text)
         ##########################################################
 
-        - name: clean-up | Gather TACACS groups
+        - name: clean-up | Gather tacacs groups
           ios_command:
             commands:
-              - "show running-config | section aaa group server tacacs\\+"
+              - "show running-config | section aaa group server tacacs"
           register: cleanup_tacacs_groups
 
         ##########################################################
         # 4) Parse group members (line-based, safe)
         ##########################################################
 
-        - name: clean-up | Parse TACACS group members
+        - name: clean-up | Parse group members
           set_fact:
-            _cur_tac_grp: "{{ line.split()[-1] if line.startswith('aaa group server tacacs+ ') else _cur_tac_grp }}"
-            tacacs_group_members: >-
+            _cur_grp: "{{ line.split()[-1] if line.startswith('aaa group server tacacs ') else _cur_grp }}"
+            group_members: >-
               {{
-                tacacs_group_members
+                group_members
                 | combine(
                     (
-                      { _cur_tac_grp: ((tacacs_group_members.get(_cur_tac_grp, []) + [line.split()[-1]]) | unique) }
-                      if (line.startswith('server name ') and _cur_tac_grp != '')
+                      { _cur_grp: ((group_members.get(_cur_grp, []) + [line.split()[-1]]) | unique) }
+                      if (line.startswith('server name ') and _cur_grp != '')
                       else {}
                     ),
                     recursive=True
@@ -356,15 +356,15 @@
             loop_var: line
             label: "hidden"
 
-        - name: clean-up | Build TACACS group list
+        - name: clean-up | Build group list
           set_fact:
-            tacacs_groups_configured: "{{ tacacs_group_members.keys() | list }}"
+            tacacs_groups_configured: "{{ group_members.keys() | list }}"
 
         ##########################################################
         # 5) Desired server names (from allowed IPs)
         ##########################################################
 
-        - name: clean-up | Compute desired TACACS server names
+        - name: clean-up | Compute desired tacacs server names
           set_fact:
             desired_tacacs_names: >-
               {{
@@ -379,12 +379,12 @@
         #    (in group, not desired, and no tacacs server object)
         ##########################################################
 
-        - name: clean-up | Compute stale TACACS group members
+        - name: clean-up | Compute stale group members
           set_fact:
-            stale_tacacs_group_members: >-
+            stale_group_members: >-
               {{
                 (
-                  tacacs_group_members.values() | list | flatten | unique
+                  group_members.values() | list | flatten | unique
                 )
                 | difference(desired_tacacs_names | default([]))
                 | difference((existing_tacacs_map | default({})).keys() | list)
@@ -393,48 +393,50 @@
         ##########################################################
         # 7) Build unlink commands (extra + stale)
         ##########################################################
-
-        - name: clean-up | Build TACACS unlink ops (parents + lines)
+          
+        - name: clean-up | Build unlink ops (parents + lines)
           set_fact:
-            tacacs_unlink_ops: "{{ (tacacs_unlink_ops | default([])) + ([{'parent': 'aaa group server tacacs+ ' ~ grp, 'lines': bad_lines}] if (bad_lines | length > 0) else []) }}"
+            tacacs_unlink_ops: "{{ (tacacs_unlink_ops | default([])) + ([{'parent': 'aaa group server tacacs ' ~ grp, 'lines': bad_lines}] if (bad_lines | length > 0) else []) }}"
           loop: "{{ tacacs_groups_configured | default([]) }}"
           loop_control:
             loop_var: grp
           vars:
-            members: "{{ tacacs_group_members.get(grp, []) | default([]) }}"
+            members: "{{ group_members.get(grp, []) | default([]) }}"
             bad_in_group: >-
               {{
                 members
-                | intersect((tacacs_names_to_remove | default([])) + (stale_tacacs_group_members | default([])))
+                | intersect((tacacs_names_to_remove | default([])) + (stale_group_members | default([])))
                 | unique
                 | list
               }}
             bad_lines: "{{ bad_in_group | map('regex_replace', '^', 'no server name ') | list }}"
 
-        - name: clean-up | Show TACACS unlink ops plan
+        - name: clean-up | Show unlink ops plan
           debug:
             var: tacacs_unlink_ops
+
+
 
         ##########################################################
         # 8) Show plan
         ##########################################################
 
-        - name: clean-up | Show TACACS unlink/delete plan
+        - name: clean-up | Show unlink/delete plan
           debug:
             msg:
               allowed_tacacs_ips: "{{ allowed_tacacs_ips }}"
               existing_tacacs_map: "{{ existing_tacacs_map }}"
               desired_tacacs_names: "{{ desired_tacacs_names }}"
               tacacs_names_to_remove: "{{ tacacs_names_to_remove }}"
-              stale_tacacs_group_members: "{{ stale_tacacs_group_members }}"
-              tacacs_group_members: "{{ tacacs_group_members }}"
-              tacacs_groups_configured: "{{ tacacs_groups_configured | default([]) }}"
+              stale_group_members: "{{ stale_group_members }}"
+              group_members: "{{ group_members }}"
+              tacacs_unlink_lines: "{{ tacacs_unlink_lines }}"
 
         ##########################################################
         # 9) APPLY: unlink first, then delete
         ##########################################################
 
-        - name: clean-up | Unlink extra & stale TACACS servers from groups
+        - name: clean-up | Unlink extra & stale servers from groups
           ios_config:
             parents: "{{ item.parent }}"
             lines: "{{ item.lines }}"
@@ -443,57 +445,124 @@
             label: "{{ item.parent }}"
           when: (tacacs_unlink_ops | default([])) | length > 0
 
-        - name: clean-up | Delete extra TACACS server objects
+
+        - name: clean-up | Delete extra tacacs server objects
           ios_config:
             lines: "{{ tacacs_names_to_remove | map('regex_replace', '^(.*)$', 'no tacacs server \\1') | list }}"
-          when: (tacacs_names_to_remove | default([]) | length) > 0
+          when: (tacacs_names_to_remove | length) > 0
 
         ##########################################################
-        # 10) Clean Up Stale TACACS groups (empties)
+        # 10) Clean Up Stale groups
         ##########################################################
-
-        - name: clean-up | Re-gather TACACS groups after changes
+        - name: clean-up | Re-gather tacacs groups after changes
           ios_command:
             commands:
-              - "show running-config | section aaa group server tacacs\\+"
+              - "show running-config | section aaa group server tacacs"
           register: cleanup_tacacs_groups_after
 
-        - name: clean-up | Compute empty TACACS groups init
+        - name: clean-up | Compute empty tacacs groups (no server name entries)
           set_fact:
             empty_tacacs_groups: []
-            _cur_tac_grp: ""
+            _cur_grp: ""
             _cur_has_member: false
 
-        - name: clean-up | Scan TACACS groups and detect empties
+        - name: clean-up | Scan groups and detect empties
           set_fact:
+            # when we hit a new group header, finalize the previous group:
             empty_tacacs_groups: >-
               {{
                 empty_tacacs_groups
-                + ([ _cur_tac_grp ] if (_cur_tac_grp != '' and (not _cur_has_member)) else [])
-                if (line.startswith('aaa group server tacacs+ '))
+                + ([ _cur_grp ] if (_cur_grp != '' and (not _cur_has_member)) else [])
+                if (line.startswith('aaa group server tacacs '))
                 else empty_tacacs_groups
               }}
-            _cur_tac_grp: "{{ (line.split()[-1]) if line.startswith('aaa group server tacacs+ ') else _cur_tac_grp }}"
+            _cur_grp: "{{ (line.split()[-1]) if line.startswith('aaa group server tacacs ') else _cur_grp }}"
             _cur_has_member: "{{ true if line.startswith('server name ') else _cur_has_member }}"
           loop: "{{ (cleanup_tacacs_groups_after.stdout[0] | default('')).splitlines() | map('trim') | list }}"
           loop_control:
             loop_var: line
             label: "hidden"
 
-        - name: clean-up | Finalize last TACACS group empty check
+        - name: clean-up | Finalize last group empty check
           set_fact:
-            empty_tacacs_groups: "{{ empty_tacacs_groups + ([ _cur_tac_grp ] if (_cur_tac_grp != '' and (not _cur_has_member)) else []) }}"
+            empty_tacacs_groups: "{{ empty_tacacs_groups + ([ _cur_grp ] if (_cur_grp != '' and (not _cur_has_member)) else []) }}"
 
-        - name: clean-up | Remove empty TACACS groups
+        - name: clean-up | Remove empty tacacs groups
           ios_config:
-            lines: "{{ empty_tacacs_groups | map('regex_replace', '^(.*)$', 'no aaa group server tacacs+ \\1') | list }}"
+            lines: "{{ empty_tacacs_groups | map('regex_replace', '^(.*)$', 'no aaa group server tacacs \\1') | list }}"
           when: (empty_tacacs_groups | default([])) | length > 0
 
-        - name: clean-up | Show empty TACACS groups removed
+        - name: clean-up | Show empty groups removed
           debug:
             msg:
               empty_tacacs_groups: "{{ empty_tacacs_groups | default([]) }}"
 
+        ##########################################################
+        # 11) Remove Unused/Stale AAA Method lists
+        ##########################################################
+        - name: clean-up | Gather AAA server groups after cleanup (tacacs + tacacs)
+          ios_command:
+            commands:
+              - "show running-config | section aaa group server"
+          register: aaa_groups_after
+
+        - name: clean-up | Build list of existing AAA groups after cleanup (all types)
+          set_fact:
+            aaa_groups_existing_after: >-
+              {{
+                (aaa_groups_after.stdout[0] | default('')).splitlines()
+                | map('trim')
+                | select('match', '^aaa group server ')
+                | map('split')
+                | map('last')
+                | unique
+                | list
+              }}
+
+        - name: clean-up | Gather AAA section after cleanup
+          ios_command:
+            commands:
+              - "show running-config | section aaa"
+          register: aaa_after
+
+        - name: clean-up | Collect AAA METHOD lines that reference a group (exclude aaa group server)
+          set_fact:
+            aaa_group_lines: >-
+              {{
+                (aaa_after.stdout[0] | default('')).splitlines()
+                | map('trim')
+                | select('match', '^aaa (authentication|authorization|accounting) ')
+                | select('search', ' group ')
+                | list
+              }}
+
+
+        - name: clean-up | Compute AAA lines to remove (group missing)
+          set_fact:
+            aaa_lines_to_remove: "{{ (aaa_lines_to_remove | default([])) + ([line] if remove_me else []) }}"
+          loop: "{{ aaa_group_lines | default([]) }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+          vars:
+            grp: "{{ (line | regex_findall('\\bgroup\\s+(\\S+)') | first | default('')) }}"
+            remove_me: >-
+              {{
+                (grp | length > 0)
+                and (grp not in (aaa_groups_existing_after | default([])))
+                and (not line.startswith('aaa group server '))
+              }}
+
+        - name: clean-up | Show AAA lines to remove (missing group)
+          debug:
+            msg:
+              aaa_groups_existing_after: "{{ aaa_groups_existing_after | default([]) }}"
+              aaa_lines_to_remove: "{{ aaa_lines_to_remove | default([]) }}"
+
+        - name: clean-up | Remove AAA lines that reference missing groups
+          ios_config:
+            lines: "{{ aaa_lines_to_remove | default([]) | map('regex_replace', '^', 'no ') | list }}"
+          when: (aaa_lines_to_remove | default([])) | length > 0
       tags:
         - cleanup
 
