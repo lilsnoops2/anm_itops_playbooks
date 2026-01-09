@@ -269,6 +269,237 @@
 
 
     ##########################################################
+    # clean-up (TACACS)
+    # Remove extra & stale TACACS servers and group entries
+    ##########################################################
+
+    - block:
+
+        ##########################################################
+        # Init
+        ##########################################################
+
+        - name: clean-up | Initialize TACACS cleanup facts
+          set_fact:
+            tacacs_unlink_ops: []
+            tacacs_group_members: {}
+            _cur_tac_grp: ""
+
+        ##########################################################
+        # 1) Allowed IPs from aaa-servers.yml
+        ##########################################################
+
+        - name: clean-up | Build allowed TACACS IP list
+          set_fact:
+            allowed_tacacs_ips: >-
+              {{
+                (tacacs_servers | default([]))
+                | map(attribute='ip')
+                | select('defined')
+                | map('string')
+                | unique
+                | list
+              }}
+
+        ##########################################################
+        # 2) Extra configured servers (exist but not allowed)
+        ##########################################################
+
+        - name: clean-up | Compute extra configured TACACS servers
+          set_fact:
+            tacacs_names_to_remove: >-
+              {{
+                (existing_tacacs_map | default({}) | dict2items)
+                | rejectattr('value', 'in', allowed_tacacs_ips)
+                | map(attribute='key')
+                | list
+              }}
+            tacacs_ips_to_remove: >-
+              {{
+                (existing_tacacs_map | default({}) | dict2items)
+                | rejectattr('value', 'in', allowed_tacacs_ips)
+                | map(attribute='value')
+                | list
+              }}
+
+        ##########################################################
+        # 3) Gather tacacs groups (raw text)
+        ##########################################################
+
+        - name: clean-up | Gather TACACS groups
+          ios_command:
+            commands:
+              - "show running-config | section aaa group server tacacs\\+"
+          register: cleanup_tacacs_groups
+
+        ##########################################################
+        # 4) Parse group members (line-based, safe)
+        ##########################################################
+
+        - name: clean-up | Parse TACACS group members
+          set_fact:
+            _cur_tac_grp: "{{ line.split()[-1] if line.startswith('aaa group server tacacs+ ') else _cur_tac_grp }}"
+            tacacs_group_members: >-
+              {{
+                tacacs_group_members
+                | combine(
+                    (
+                      { _cur_tac_grp: ((tacacs_group_members.get(_cur_tac_grp, []) + [line.split()[-1]]) | unique) }
+                      if (line.startswith('server name ') and _cur_tac_grp != '')
+                      else {}
+                    ),
+                    recursive=True
+                  )
+              }}
+          loop: "{{ (cleanup_tacacs_groups.stdout[0] | default('')).splitlines() | map('trim') | list }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+
+        - name: clean-up | Build TACACS group list
+          set_fact:
+            tacacs_groups_configured: "{{ tacacs_group_members.keys() | list }}"
+
+        ##########################################################
+        # 5) Desired server names (from allowed IPs)
+        ##########################################################
+
+        - name: clean-up | Compute desired TACACS server names
+          set_fact:
+            desired_tacacs_names: >-
+              {{
+                (existing_tacacs_map | default({}) | dict2items)
+                | selectattr('value', 'in', allowed_tacacs_ips)
+                | map(attribute='key')
+                | list
+              }}
+
+        ##########################################################
+        # 6) Stale group-only members
+        #    (in group, not desired, and no tacacs server object)
+        ##########################################################
+
+        - name: clean-up | Compute stale TACACS group members
+          set_fact:
+            stale_tacacs_group_members: >-
+              {{
+                (
+                  tacacs_group_members.values() | list | flatten | unique
+                )
+                | difference(desired_tacacs_names | default([]))
+                | difference((existing_tacacs_map | default({})).keys() | list)
+              }}
+
+        ##########################################################
+        # 7) Build unlink commands (extra + stale)
+        ##########################################################
+
+        - name: clean-up | Build TACACS unlink ops (parents + lines)
+          set_fact:
+            tacacs_unlink_ops: "{{ (tacacs_unlink_ops | default([])) + ([{'parent': 'aaa group server tacacs+ ' ~ grp, 'lines': bad_lines}] if (bad_lines | length > 0) else []) }}"
+          loop: "{{ tacacs_groups_configured | default([]) }}"
+          loop_control:
+            loop_var: grp
+          vars:
+            members: "{{ tacacs_group_members.get(grp, []) | default([]) }}"
+            bad_in_group: >-
+              {{
+                members
+                | intersect((tacacs_names_to_remove | default([])) + (stale_tacacs_group_members | default([])))
+                | unique
+                | list
+              }}
+            bad_lines: "{{ bad_in_group | map('regex_replace', '^', 'no server name ') | list }}"
+
+        - name: clean-up | Show TACACS unlink ops plan
+          debug:
+            var: tacacs_unlink_ops
+
+        ##########################################################
+        # 8) Show plan
+        ##########################################################
+
+        - name: clean-up | Show TACACS unlink/delete plan
+          debug:
+            msg:
+              allowed_tacacs_ips: "{{ allowed_tacacs_ips }}"
+              existing_tacacs_map: "{{ existing_tacacs_map }}"
+              desired_tacacs_names: "{{ desired_tacacs_names }}"
+              tacacs_names_to_remove: "{{ tacacs_names_to_remove }}"
+              stale_tacacs_group_members: "{{ stale_tacacs_group_members }}"
+              tacacs_group_members: "{{ tacacs_group_members }}"
+              tacacs_groups_configured: "{{ tacacs_groups_configured | default([]) }}"
+
+        ##########################################################
+        # 9) APPLY: unlink first, then delete
+        ##########################################################
+
+        - name: clean-up | Unlink extra & stale TACACS servers from groups
+          ios_config:
+            parents: "{{ item.parent }}"
+            lines: "{{ item.lines }}"
+          loop: "{{ tacacs_unlink_ops | default([]) }}"
+          loop_control:
+            label: "{{ item.parent }}"
+          when: (tacacs_unlink_ops | default([])) | length > 0
+
+        - name: clean-up | Delete extra TACACS server objects
+          ios_config:
+            lines: "{{ tacacs_names_to_remove | map('regex_replace', '^(.*)$', 'no tacacs server \\1') | list }}"
+          when: (tacacs_names_to_remove | default([]) | length) > 0
+
+        ##########################################################
+        # 10) Clean Up Stale TACACS groups (empties)
+        ##########################################################
+
+        - name: clean-up | Re-gather TACACS groups after changes
+          ios_command:
+            commands:
+              - "show running-config | section aaa group server tacacs\\+"
+          register: cleanup_tacacs_groups_after
+
+        - name: clean-up | Compute empty TACACS groups init
+          set_fact:
+            empty_tacacs_groups: []
+            _cur_tac_grp: ""
+            _cur_has_member: false
+
+        - name: clean-up | Scan TACACS groups and detect empties
+          set_fact:
+            empty_tacacs_groups: >-
+              {{
+                empty_tacacs_groups
+                + ([ _cur_tac_grp ] if (_cur_tac_grp != '' and (not _cur_has_member)) else [])
+                if (line.startswith('aaa group server tacacs+ '))
+                else empty_tacacs_groups
+              }}
+            _cur_tac_grp: "{{ (line.split()[-1]) if line.startswith('aaa group server tacacs+ ') else _cur_tac_grp }}"
+            _cur_has_member: "{{ true if line.startswith('server name ') else _cur_has_member }}"
+          loop: "{{ (cleanup_tacacs_groups_after.stdout[0] | default('')).splitlines() | map('trim') | list }}"
+          loop_control:
+            loop_var: line
+            label: "hidden"
+
+        - name: clean-up | Finalize last TACACS group empty check
+          set_fact:
+            empty_tacacs_groups: "{{ empty_tacacs_groups + ([ _cur_tac_grp ] if (_cur_tac_grp != '' and (not _cur_has_member)) else []) }}"
+
+        - name: clean-up | Remove empty TACACS groups
+          ios_config:
+            lines: "{{ empty_tacacs_groups | map('regex_replace', '^(.*)$', 'no aaa group server tacacs+ \\1') | list }}"
+          when: (empty_tacacs_groups | default([])) | length > 0
+
+        - name: clean-up | Show empty TACACS groups removed
+          debug:
+            msg:
+              empty_tacacs_groups: "{{ empty_tacacs_groups | default([]) }}"
+
+      tags:
+        - cleanup
+
+
+
+    ##########################################################
     # 7. Save and verify
     ##########################################################
     - name: Save running configuration
