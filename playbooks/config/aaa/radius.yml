@@ -1,4 +1,5 @@
-#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'conf_coa=yes' -e 'deadtime=10' -e 'timeout_seconds=3' -e 'retry=3'
+#ansible-playbook playbooks/configuration/aaa/radius.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123' -e 'deadtime=10' -e 'timeout_seconds=3' -e 'retry=3'
+#required tag: standard, login_only, full, optional tags: config_avp, config_coa, config_load_balance, config_tester, config_device_sensor 
 ---
 - name: Standardize radius configuration with named method lists
   hosts: all
@@ -16,18 +17,11 @@
     ansible_become_password: "{{ enable | default(ansible_password) }}"
     ansible_become: true
     ansible_become_method: enable
-    lb: "{{ load_balance | default('no') }}"
-    conf_tester: "{{ config_tester | default('no') }}"
-    conf_avp: "{{ config_avp | default('no') }}"
-    conf_coa: "{{ config_coa | default('no') }}"
-    conf_login: "{{ config_login | default('no') }}"
-    login_o: "{{ login_only | default('no') }}"
-    conf_device_sensor: "{{ config_device_sensor | default('no') }}"
-
 
   pre_tasks:
 
     - name: Prompt for username
+      tags: standard, login_only, full
       pause:
         prompt: "Enter username"
         echo: yes
@@ -37,6 +31,7 @@
       run_once: true
 
     - name: Prompt for password
+      tags: standard, login_only, full
       pause:
         prompt: "Enter password"
         echo: no
@@ -46,6 +41,7 @@
       run_once: true
     
     - name: Prompt for organization prefix
+      tags: standard, login_only, full
       run_once: true
       delegate_to: localhost
       pause:
@@ -54,6 +50,7 @@
       when: prompt_for_prefix
 
     - name: Prompt for radius shared secret key
+      tags: standard, login_only, full
       pause:
         prompt: "Enter radius shared secret key (will not echo):"
         echo: no
@@ -63,32 +60,38 @@
       run_once: true
 
     - name: Set username from prompt
+      tags: standard, login_only, full
       set_fact:
         ansible_user: "{{ user_input.user_input }}"
       when: user_input is defined and user_input.user_input is defined
 
     - name: Set password from prompt
+      tags: standard, login_only, full
       set_fact:
         ansible_password: "{{ pass_input.user_input }}"
       when: pass_input is defined and pass_input.user_input is defined
 
     - name: Set organization prefix from prompt
+      tags: standard, login_only, full
       set_fact:
         organization_prefix: "{{ org_prefix_input.user_input | upper }}"
       when: prompt_for_prefix
 
     - name: Update naming convention variables
+      tags: standard, login_only, full
       set_fact:
         radius_group_name: "{{ organization_prefix }}-RADIUS"
         auth_method_list: "{{ organization_prefix | lower }}-authc-radius"
         authz_method_list: "{{ organization_prefix | lower }}-authz-radius"
 
     - name: Set radius key variable
+      tags: standard, login_only, full
       set_fact:
         radius_key: "{{ radius_key_prompt.user_input }}"
       when: radius_key is not defined
 
     - name: Ensure AAA new-model is enabled
+      tags: standard, login_only, full
       ios_config:
         lines:
           - "aaa new-model"
@@ -101,7 +104,7 @@
     ##########################################################
 
     - name: Gather current named radius servers
-      tags: cleanup
+      tags: standard, cleanup, config_tester, config_coa, login_only, full
       ios_command:
         commands:
           - "show running-config | section ^radius server"
@@ -112,13 +115,13 @@
     ##########################################################
 
     - name: Initialize RADIUS server facts
-      tags: cleanup
+      tags: standard, cleanup, config_tester, config_coa, login_only, full
       set_fact:
         existing_radius_map: {}
         existing_radius_keys: {}
 
     - name: Parse radius servers line-by-line
-      tags: cleanup
+      tags: standard, cleanup, config_tester, config_coa, login_only, full
       vars:
         config_lines: "{{ radius_config.stdout[0].splitlines() }}"
       block:
@@ -143,14 +146,17 @@
           no_log: true
 
     - name: Build list of currently configured radius IPs
+      tags: standard, login_only, full
       set_fact:
         existing_radius_ips: "{{ existing_radius_map.values() | list }}"
 
     - name: Build servers_with_names (loop-based)
+      tags: standard, login_only, full
       set_fact:
         servers_with_names: []
 
     - name: Append server_name to each required server
+      tags: standard, config_tester, config_coa, login_only, full
       set_fact:
         servers_with_names: >-
           {{
@@ -163,6 +169,7 @@
       no_log: true
 
     - name: Add or update RADIUS servers (reuse existing key if present)
+      tags: standard, login_only, full
       ios_config:
         parents: "radius server {{ server.server_name }}"
         lines:
@@ -176,6 +183,7 @@
 
 
     - name: Configure radius server group
+      tags: standard, login_only, full
       ios_config:
         parents: "aaa group server radius {{ radius_group_name }}"
         lines: "{{ servers_with_names | map(attribute='server_name') | map('regex_replace', '^(.*)$', 'server name \\1') | list }}"
@@ -186,9 +194,9 @@
     # 3. Configure optional
     ##########################################################
     - name: Add automate-tester line under each RADIUS server
+      tags: config_tester
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - conf_tester == 'yes'
       ios_config:
         lines:
           - "automate-tester username radius-test idle-time 10"
@@ -199,7 +207,7 @@
       no_log: true
 
     - name: Add or update COA servers
-      when: conf_coa == "yes"
+      tags: config_coa
       ios_config:
         parents: "aaa server radius dynamic-author"
         lines:
@@ -211,9 +219,9 @@
       no_log: true
 
     - name: Set RADIUS Access request AVP
+      tags: config_avp
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - conf_avp == 'yes'
       ios_config:
         lines:
           - "radius-server attribute 6 on-for-login-auth"
@@ -226,9 +234,9 @@
 
 
     - name: Enable Device Sensor
+      tags: config_device_sensor
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - conf_device_sensor == 'yes'
       ios_config:
         lines:
           - "device-sensor notify all-changes"
@@ -241,6 +249,7 @@
     # 4. Enforce AAA baseline configuration
     ##########################################################
     - name: Enforce AAA global settings - no load-balance
+      tags: standard, set_global
       ios_config:
         lines:
           - "radius-server dead-criteria time {{ timeout_seconds | default(3) }} tries {{ retry | default(3) }}"
@@ -252,9 +261,9 @@
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - lb == "no"
 
     - name: Enforce AAA global settings - load-balance
+      tags: config_load_balance, set_global_lb
       ios_config:
         lines:
           - "radius-server dead-criteria time {{ timeout_seconds | default(3) }} tries {{ retry | default(3) }}"
@@ -266,10 +275,10 @@
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - lb == "yes"
 
 
     - name: Enforce AAA authentication/authorization/accounting - dot1x/mab/login
+      tags: full
       ios_config:
         lines:
           - "aaa authentication dot1x default group {{ radius_group_name }}"
@@ -287,10 +296,10 @@
         match: exact
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - conf_login == "yes"
 
 
     - name: Enforce AAA authentication/authorization/accounting - login only
+      tags: login_only
       ios_config:
         lines:
           - "aaa authentication login {{ auth_method_list }} group {{ radius_group_name }} local enable"
@@ -302,9 +311,9 @@
         match: exact
       when: 
        - ansible_network_os in ['ios', 'iosxe']
-       - login_o == "yes"
 
     - name: Enforce AAA authentication/authorization/accounting  - dot1x/mab only
+      tags: standard
       ios_config:
         lines:
           - "aaa authentication dot1x default group {{ radius_group_name }}"
@@ -322,22 +331,23 @@
     # 5. Configure VTY line authentication
     ##########################################################
     - name: Get available VTY lines
+      tags: login_only, full
       ios_command:
         commands:
           - "show running-config | section line vty"
       register: vty_lines_output
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_o == "yes" or conf_login == "yes"
 
     - name: Parse VTY line ranges (e.g., 0 4, 5 15, 0 31)
+      tags: login_only, full
       set_fact:
         vty_groups: "{{ vty_lines_output.stdout[0] | regex_findall('line vty (\\d+)\\s+(\\d+)') | map('map', 'int') | list }}"
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_o == "yes" or conf_login == "yes"
 
     - name: Configure VTY line login and authorization ranges
+      tags: login_only, full
       ios_config:
         parents: "line vty {{ item.0 }} {{ item.1 }}"
         lines:
@@ -349,7 +359,6 @@
         label: "hidden"
       when: 
         - ansible_network_os in ['ios', 'iosxe']
-        - login_o == "yes" or conf_login == "yes"
       no_log: true
 
     ##########################################################
@@ -733,7 +742,7 @@
     # 6. Save and verify
     ##########################################################
     - name: Save running configuration
-      tags: cleanup
+      tags: standard, cleanup, config_tester, config_coa, config_avp, login_only, full
       ios_command:
         commands:
           - "write memory"
@@ -743,7 +752,7 @@
         ansible_connect_timeout: 120
 
     - name: Test AAA Group
-      tags: validate
+      tags: standard, validate, login_only, full
       ios_command:
         commands:
           - "test aaa group {{ radius_group_name }} {{ ansible_user }} {{ ansible_password }} new-code"
@@ -757,7 +766,7 @@
 
 
     - name: Verify radius and AAA configuration
-      tags: validate
+      tags: standard, validate, login_only, full
       ios_command:
         commands:
           - "show running-config | section aaa"
@@ -766,7 +775,7 @@
       when: ansible_network_os in ['ios', 'iosxe']
 
     - name: Display verification summary
-      tags: validate
+      tags: standard, validate, login_only, full
       debug:
         msg: |
           Radius Configuration Verified
