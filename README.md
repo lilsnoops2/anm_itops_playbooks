@@ -679,6 +679,7 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     ##### `tacacs`
     This playbook will dynamically configure TACACS on devices based on the servers configured in aaa-servers.yml.
 
+
     **Summary/Overview of tasks:**  
     * Configures AAA new-model if not configured - required for devices that are newly being configured
     * Grabs any current TACACS related configuration
@@ -716,6 +717,44 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `group_name` (optional): Override the default tacacs group name to use a specific name instead of the one built using the organization_prefix var
 
 
+    **Tag: cleanup**
+    Summary/Overview of tasks:  
+    * This tag finds servers that are not configured in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml`, and removes them from any tacacs groups and removes the server config.
+    * Finds and removes empty tacacs groups
+    * Removes method lists that reference any non-configured servers/server groups
+
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Tag: validate**
+
+    Summary/Overview of tasks:  
+    * Logs into device and runs test aaa group radius
+
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+
     **Examples**   
     Configures TACACS on a single device. 
     ```bash
@@ -733,35 +772,35 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     <summary>radius</summary>
 
     ##### `radius`
-    This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml. When no optional variables are used, the script configured RADIUS for use with dot1x/mab (network access) only. Special care must be taken when a client has both radius and tacacs available. Use the optional variables to configure login (device administration) using the same radius servers when not using tacacs for device administration. In environments with both protocols available, run this script to configure network access (dot1x/mab), then run tacacs script to configure device administration.
+    This playbook will dynamically configure RADIUS on devices based on the servers configured in aaa-servers.yml.This script uses tags to allow for reuse of the same playbook for optional configuration. Please review the tags and what each tag will configure and the tags required. The 'standard' tag is the default script behavior which configures RADIUS for use with dot1x/mab (network access) only. Special care must be taken when a client has both radius and tacacs available. Use the tag 'full' or 'login_only' to configure login (device administration) using the same radius servers when not using tacacs for device administration. In environments with both protocols available, run this script with the 'standard' to configure network access (dot1x/mab), then run tacacs script to configure device administration. One of these tags is required: standard, full, or login_only. All other tags can be run in conjunction with with the required or on their own for specific configuration.
 
-    **Summary/Overview of tasks:**  
+    **Tag: standard**
+
+    Summary/Overview of tasks:
+
     * Configures AAA new-model if not configured - required for devices that are newly being configured
     * Grabs any current RADIUS related configuration
     * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
     * Configures RADIUS group with the organization_prefix + RADIUS, example: ANM-RADIUS. Places the configured RADIUS servers in the group
-    * Configures method lists with organization_prefix and the newly created TACACS group For example:
+    * Configures method lists with organization_prefix and the newly created RADIUS group For example:
     ```bash
-    aaa authentication login ANM_authc_radius group ANM-RADIUS local enable
-    aaa authentication enable default group ANM-RADIUS enable
-    aaa authorization exec ANM_authz__radius group ANM-RADIUS local if-authenticated
-    aaa accounting commands 1 default start-stop group ANM-RADIUS
-    aaa accounting commands 15 default start-stop group ANM-RADIUS
+    aaa authentication dot1x default group ANM-RADIUS
+    aaa authorization network default group ANM-RADIUS
+    aaa accounting network default start-stop group ANM-RADIUS
+    aaa accounting system default start-stop group ANM-RADIUS
+    aaa accounting auth-proxy default start-stop group ANM-RADIUS
+    aaa accounting dot1x default start-stop group ANM-RADIUS
+    aaa accounting update newinfo periodic 2880
     ```
-    * Configures the VTY lines with the authentication and authorization method lists, for example:
-    ```
-    line vty 0 15
-    login authentication ANM_authc
-    authorization exec ANM_authz
-    ```
-    * Removes old and deprecated tacacs-server commands - tacacs-server commands are being removed in future releases, this task removes them and ensure we are only using named configs
     * Shows output after configuring
 
-    **Supported OS:**  
+
+    Supported OS:  
     * IOS
     * IOS XE
 
-    **Variables**
+    Variables 
+
     If these variables are not passed in via the -e argument, they will be prompted for during the script execution
     Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
     - `ansible_user` (required): Username to log in to devices
@@ -772,129 +811,290 @@ ansible-playbook http_server.yml -i inventory.ini -e 'remove=true' --limit netwo
     - `timeout_seconds` (optional): Timeout in seconds, defaults to 3 seconds
     - `retry` (optional): Amount of times to retry, defaults to 3
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
-    - `load_balance` (optional): Sets load balancing of servers in the server group globally
-    - `config_coa` (optional): Set to 'yes' to also configure COA for the same radius servers using the same key. Defaults to 'no'.
-    - `config_tester` (optional): Set to 'yes' to also configure automate tester for the configured radius servers. Defaults to 'no'.
-    - `config_login` (optional): Set to 'yes' to configure login and mab/dot1x. Defaults to 'no'.
-    - `login_only` (optional): Set to 'yes' to ato only configure login. Defaults to 'no'.
-    - `group_name` (optional): Override the default radius group name to use a specific name instead of the one built using the organization_prefix var
-    - `config_avp` (optional): Sets RADIUS additional AVPs to be sent with the access-request message: attribute 6 on-for-login-auth, attribute 8 include-in-access-req, attribute 25 access-request include, attribute 31 mac format ietf, attribute 31 send nas-port-detail
-    - `config_device_sensor` (optional): Configures device-sensor to send cdp, lldp, and dhcp information to the server using accounting messages.
 
 
+    **Tag: full (802.1x/MAB/LOGIN)**
 
-    **Examples**   
-    Configures RADIUS on a single device. 
-    ```bash
-    ansible-playbook playbooks/config/aaa/radius.yml -l 'sw1' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
-    ```
+    Summary/Overview of tasks: 
 
-    Output:
-    ```bash
-    ```
-    </details>
-  -------------------------------------------------
-
-  - 
-    <details>
-    <summary>coa_config</summary>
-
-    ##### `coa_config`
-    This playbook will add CoA config to a device based on the servers configured in aaa-servers.yml. This playbook should only be used when radius config is already present on devices.
-
-    **Summary/Overview of tasks:**  
+    * Configures AAA new-model if not configured - required for devices that are newly being configured
     * Grabs any current RADIUS related configuration
-    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` as CoA servers - Ensure to update aaa-servers.yml before attempting to run the playbook. Playbooks will attempt to use the same key found in the devices config, otherwise the provided key will be used.
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
+    * Configures RADIUS group with the organization_prefix + RADIUS, example: ANM-RADIUS. Places the configured RADIUS servers in the group
+    * Configures method lists with organization_prefix and the newly created RADIUS group For example:
+    ```bash
+    aaa authentication login anm-authc group ANM-RADIUS local enable
+    aaa authentication enable default group ANM-RADIUS enable
+    aaa authentication dot1x default group ANM-RADIUS
+    aaa authorization exec anm-authz group ANM-RADIUS local if-authenticated
+    aaa authorization network default group ANM-RADIUS
+    aaa accounting commands 1 default start-stop group ANM-RADIUS
+    aaa accounting commands 15 default start-stop group ANM-RADIUS
+    aaa accounting network default start-stop group ANM-RADIUS
+    aaa accounting system default start-stop group ANM-RADIUS
+    aaa accounting auth-proxy default start-stop group ANM-RADIUS
+    aaa accounting dot1x default start-stop group ANM-RADIUS
+    aaa accounting update newinfo periodic 2880
+    ```
+    * Configures the VTY lines with the authentication and authorization method lists, for example:
+    ```
+    line vty 0 15
+    login authentication ANM_authc
+    authorization exec ANM_authz
+    ```
     * Shows output after configuring
 
-    **Supported OS:**  
+    Supported OS:  
     * IOS
     * IOS XE
 
-    **Variables**
+    Variables
+
     If these variables are not passed in via the -e argument, they will be prompted for during the script execution
     Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
     - `ansible_user` (required): Username to log in to devices
     - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
     - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
     - `radius_key` (required): The PSK used for the RADIUS server
+    - `timeout_seconds` (optional): Timeout in seconds, defaults to 3 seconds
+    - `retry` (optional): Amount of times to retry, defaults to 3
+    - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
 
-    **Examples**   
-    Configures coA on a single device. 
-    ```bash
-    ansible-playbook playbooks/config/aaa/coa_config.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
-    ```
-    </details>
-  -------------------------------------------------
 
-  - 
-    <details>
-    <summary>automate_tester</summary>
+    **Tag: login_only (LOGIN)** 
 
-    ##### `automate_tester`
-    This playbook will add the automate-tester config to a device. 
-
-    **Summary/Overview of tasks:**  
+    Summary/Overview of tasks: 
+    * Configures AAA new-model if not configured - required for devices that are newly being configured
     * Grabs any current RADIUS related configuration
-    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` with automate tester - Ensure to update aaa-servers.yml before attempting to run the playbook.
+    * Configures Specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` - Ensure to update aaa-servers.yml before attempting to run the playbook
+    * Configures RADIUS group with the organization_prefix + RADIUS, example: ANM-RADIUS. Places the configured RADIUS servers in the group
+    * Configures method lists with organization_prefix and the newly created RADIUS group For example:
+    ```bash
+    aaa authentication login anm-authc group ANM-RADIUS local enable
+    aaa authentication enable default group ANM-RADIUS enable
+    aaa authorization exec anm-authz group ANM-RADIUS local if-authenticated
+    aaa accounting commands 1 default start-stop group ANM-RADIUS
+    aaa accounting commands 15 default start-stop group ANM-RADIUS
+    aaa accounting network default start-stop group ANM-RADIUS
+    aaa accounting update newinfo periodic 2880
+    ```
+    * Configures the VTY lines with the authentication and authorization method lists, for example:
+    ```
+    line vty 0 15
+    login authentication ANM_authc
+    authorization exec ANM_authz
+    ```
     * Shows output after configuring
 
-    **Supported OS:**  
+    Supported OS: 
     * IOS
     * IOS XE
 
-    **Variables**
+    Variables
+
     If these variables are not passed in via the -e argument, they will be prompted for during the script execution
     Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
     - `ansible_user` (required): Username to log in to devices
     - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
     - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-
-    **Examples**   
-    Configures automate-tester on a single device. 
-    ```bash
-    ansible-playbook playbooks/config/aaa/automate_tester.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password'
-    ```
-    </details>
-  -------------------------------------------------
-
-  - 
-    <details>
-    <summary>set_radius_global_settings</summary>
-
-    ##### `set_radius_global_settings`
-    This playbook will add global radius settings:
-
-    ```
-              - "radius-server dead-criteria time {{ timeout }} tries {{ retries }}"
-              - "radius-server retransmit {{ retries }}"
-              - "radius-server timeout {{ timeout }}"
-              - "radius-server deadtime{{ deadtime }}"
-    ```
-
-    **Supported OS:**  
-    * IOS
-    * IOS XE
-
-    **Variables**
-    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
-    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
-    - `ansible_user` (required): Username to log in to devices
-    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
-    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
-    - `timeout` (optional): Timeout in seconds, defaults to 3 seconds
-    - `retries` (optional): Amount of times to retry, defaults to 3
+    - `organization_prefix` (required): Prefix that will be appended to the RADIUS group and AAA method lists
+    - `radius_key` (required): The PSK used for the RADIUS server
+    - `timeout_seconds` (optional): Timeout in seconds, defaults to 3 seconds
+    - `retry` (optional): Amount of times to retry, defaults to 3
     - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
-    - `load_balance` (optional): Sets load balancing of servers in the server group globally
-    - `config_avp` (optional): Sets RADIUS additional AVPs to be sent with the access-request message: attribute 6 on-for-login-auth, attribute 8 include-in-access-req, attribute 25 access-request include, attribute 31 mac format ietf, attribute 31 send nas-port-detail
-    - `config_device_sensor` (optional): Configures device-sensor to send cdp, lldp, and dhcp information to the server using accounting messages.
 
 
-    **Examples**   
-    Configures global settings on a single device. 
+    **Tag: config_load_balance**
+
+    Summary/Overview of tasks:
+
+    * Configures RADIUS load balancing at the global level. Any servers added to a radius server group will be load balanced. (Not recommended in environments with accounting/coa)
     ```bash
-    ansible-playbook playbooks/config/aaa/set_radius_global_settings.yml -l 'sw1' -e 'ansible_user=user' -e 'ansible_password=password' -e 'timeout=5' -e 'deadtime=3' -e 'retries=4'
+    radius-server load-balance method least-outstanding
     ```
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+
+    **Tag: set_global**
+    
+    Summary/Overview of tasks:  
+    * This tag will add global radius settings:
+
+    ```bash
+    radius-server dead-criteria time 3 tries 3"
+    radius-server retransmit 3"
+    radius-server timeout 3"
+    radius-server deadtime 10"
+    ```
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `timeout_seconds` (optional): Timeout in seconds, defaults to 3 seconds
+    - `retry` (optional): Amount of times to retry, defaults to 3
+    - `deadtime` (optional): Amount of time in minutes before trying a server marked dead again, defaults to 10 minutes
+
+    **Tag: config_avp**
+    Summary/Overview of tasks:
+
+    * This tag will configure standard radius attribute value pairs (AVPs) that are sent to the RADIUS server:
+
+
+    ```bash
+    radius-server attribute 6 on-for-login-auth
+    radius-server attribute 8 include-in-access-req
+    radius-server attribute 25 access-request include
+    radius-server attribute 31 mac format ietf
+    radius-server attribute 31 send nas-port-detail
+    ```
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Tag: config_tester**
+
+    Summary/Overview of tasks:  
+    * This tag configures specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` with automate tester - Ensure to update aaa-servers.yml before attempting to run this tag:
+
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Tag: config_coa**
+
+    Summary/Overview of tasks:  
+    * This tag configures specified radius servers in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml` as a CoA Client
+
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+    - `radius_key` (required): The PSK used for CoA (usually the same as the RADIUS Key)
+
+
+    **Tag: config_device_sensor**
+
+    Summary/Overview of tasks:  
+    * This tag configures device-sensor. Device sensor sends CDP, LLDP, and DHCP information via a AAA accounting message with these attributes to the RADIUS server. Used for profiling.
+
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Tag: cleanup**
+    Summary/Overview of tasks:  
+    * This tag finds servers that are not configured in `/opt/ansible_local/anm_itops_playbooks/playbooks/config/aaa/vars/aaa-servers.yml`, and removes them from any radius groups and removes the server config.
+    * Finds and removes empty radius groups
+    * Removes method list that reference any non-configured servers/server groups
+
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+    **Tag: validate**
+
+    Summary/Overview of tasks:  
+    * Logs into device and runs test aaa group radius
+
+
+    Supported OS:  
+    * IOS
+    * IOS XE
+
+    Variables
+
+    If these variables are not passed in via the -e argument, they will be prompted for during the script execution
+    Remember to use -l or --limit to run playbook on specific hosts/groups: Example: -l 'switch,router' will update RADIUS for all devices belonging to groups switch or router.
+    - `ansible_user` (required): Username to log in to devices
+    - `ansible_password` (required): Password to log in to devices (if a device does not log into a device in enable, this same password will be tried for enable mode)
+    - `enable` (optional): Enable password for higher privileges, defaults to ansible_password when not defined
+
+
+    Examples   
+    Configures RADIUS on a single device then cleans up old servers/groups/lists.
+    ```bash
+    ansible-playbook playbooks/config/aaa/radius.yml -l 'sw1'  --tags standard,cleanup -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
+    ```
+
+    Configures FULL RADIUS on a single device. 
+    ```bash
+    ansible-playbook playbooks/config/aaa/radius.yml -l 'sw1'  --tags full -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'radius_key=radius123'
+    ```
+
+    Cleans up RADIUS servers, groups, and method lists on a single device. 
+    ```bash
+    ansible-playbook playbooks/config/aaa/radius.yml -l 'sw1'  --tags cleanup 'ansible_user=user' -e 'ansible_password=password'
+    ```
+
+    Sets global radius settings and enabled load-balancing. 
+    ```bash
+    ansible-playbook playbooks/config/aaa/radius.yml -l 'sw1'  --tags set_global_config_load_balance 'ansible_user=user' -e 'ansible_password=password' -e 'timeout_seconds=1' -e 'retry=2' -e 'deadtime=15'
+    ```
+
     </details>
   -------------------------------------------------
 

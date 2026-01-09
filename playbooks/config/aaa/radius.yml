@@ -248,7 +248,7 @@
     ##########################################################
     # 4. Enforce AAA baseline configuration
     ##########################################################
-    - name: Enforce AAA global settings - no load-balance
+    - name: Enforce AAA global settings
       tags: standard, set_global
       ios_config:
         lines:
@@ -256,20 +256,15 @@
           - "radius-server retransmit {{ retry | default(3) }}"
           - "radius-server timeout {{ timeout_seconds | default(3) }}"
           - "radius-server deadtime {{ deadtime | default(10) }}"
-          - "no radius-server load-balance method least-outstanding"
         match: exact
       ignore_errors: true
       when: 
        - ansible_network_os in ['ios', 'iosxe']
 
     - name: Enforce AAA global settings - load-balance
-      tags: config_load_balance, set_global_lb
+      tags: config_load_balance
       ios_config:
         lines:
-          - "radius-server dead-criteria time {{ timeout_seconds | default(3) }} tries {{ retry | default(3) }}"
-          - "radius-server retransmit {{ retry | default(3) }}"
-          - "radius-server timeout {{ timeout_seconds | default(3) }}"
-          - "radius-server deadtime {{ deadtime | default(10) }}"
           - "radius-server load-balance method least-outstanding"
         match: exact
       ignore_errors: true

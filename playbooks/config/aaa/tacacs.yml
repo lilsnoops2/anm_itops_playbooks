@@ -1,4 +1,5 @@
 #ansible-playbook playbooks/configuration/aaa/tacacs.yml -l 'c9200l' -e 'organization_prefix=ANM' -e 'ansible_user=user' -e 'ansible_password=password' -e 'tacacs_key=tacacs123'
+#tags: cleanup, validate
 ---
 - name: Standardize TACACS+ configuration with named method lists
   hosts: all
@@ -575,6 +576,7 @@
     # 7. Save and verify
     ##########################################################
     - name: Save running configuration
+      tags: cleanup
       ios_command:
         commands:
           - "write memory"
